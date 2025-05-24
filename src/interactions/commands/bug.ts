@@ -11,16 +11,25 @@ import {
 	ModalBuilder,
 	type ModalSubmitInteraction,
 	SlashCommandBuilder,
+	StringSelectMenuBuilder,
+	type StringSelectMenuInteraction,
+	StringSelectMenuOptionBuilder,
 	TextInputBuilder,
 	TextInputStyle,
 } from "discord.js";
-import { BugModel, GuildModel, getNextBugId } from "../../database/schemas.ts";
+import {
+	BugModel,
+	type BugType,
+	GuildModel,
+	getNextBugId,
+} from "../../database/schemas.ts";
 import { createUserIfNotExists } from "../../utils/exists.ts";
 import { Logger } from "../../utils/logging.ts";
 import { hasManagerPermissions } from "../../utils/permissions.ts";
 
 const logger = new Logger("bug-command");
 
+// misc
 const GAME_MAP = {
 	gw: {
 		name: "ground war",
@@ -39,6 +48,76 @@ const GAME_MAP = {
 	},
 };
 
+function getGameName(value: string): string {
+	switch (value) {
+		case "wft":
+			return "warfare tycoon";
+		case "gw":
+			return "ground war";
+		case "ab":
+			return "airsoft battles";
+		default:
+			return value;
+	}
+}
+
+async function updateBugEmbed(
+	client: Client,
+	bug: BugType,
+	messageId: string,
+	channelId: string,
+) {
+	try {
+		const channel = await client.channels.fetch(channelId);
+		if (!channel?.isTextBased() || !("messages" in channel)) return;
+
+		const message = await channel.messages.fetch(messageId);
+		const gameInfo = GAME_MAP[bug.game as keyof typeof GAME_MAP];
+
+		const embed = new EmbedBuilder()
+			.setAuthor({
+				name: message.embeds[0].author?.name || "unknown user",
+				url: message.embeds[0].author?.url,
+				iconURL: message.embeds[0].author?.iconURL,
+			})
+			.setThumbnail(gameInfo.iconURL)
+			.setTitle(bug.title)
+			.setColor(bug.status === "closed" ? 0x95a5a6 : 0xff6b6b)
+			.setDescription(bug.description)
+			.setFooter({
+				text: `${gameInfo.name} • bug #${bug.bug_id} • ${bug.status}`,
+			})
+			.setTimestamp();
+
+		// disable buttons if closed
+		const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+			new ButtonBuilder()
+				.setCustomId(`bug:close:${bug.bug_id}`)
+				.setLabel(bug.status === "closed" ? "reopen" : "close")
+				.setStyle(ButtonStyle.Secondary)
+				.setEmoji(bug.status === "closed" ? "🔓" : "🔒"),
+			new ButtonBuilder()
+				.setCustomId(`bug:edit:${bug.bug_id}`)
+				.setLabel("edit")
+				.setStyle(ButtonStyle.Primary)
+				.setDisabled(bug.status === "closed"),
+			new ButtonBuilder()
+				.setCustomId(`bug:delete:${bug.bug_id}`)
+				.setLabel("delete")
+				.setStyle(ButtonStyle.Danger),
+			new ButtonBuilder()
+				.setCustomId("bug:new")
+				.setLabel("new bug")
+				.setStyle(ButtonStyle.Success),
+		);
+
+		await message.edit({ embeds: [embed], components: [buttons] });
+	} catch (error) {
+		logger.error("failed to update bug embed:", error);
+	}
+}
+
+// command stuff
 const commandData = new SlashCommandBuilder()
 	.setName("bug")
 	.setDescription("report a bug")
@@ -104,9 +183,52 @@ async function modalExecute(
 		return;
 	}
 
-	const [, game] = interaction.customId.split(":");
+	const customIdParts = interaction.customId.split(":");
 	const title = interaction.fields.getTextInputValue("title");
 	const description = interaction.fields.getTextInputValue("description");
+
+	// handle edit case
+	if (customIdParts[1] === "edit") {
+		const bugId = Number.parseInt(customIdParts[2]);
+
+		try {
+			const bug = await BugModel.findOne({ bug_id: bugId });
+			if (!bug) {
+				return interaction.reply({
+					content: "❌ bug not found.",
+					flags: ["Ephemeral"],
+				});
+			}
+
+			bug.title = title;
+			bug.description = description;
+			await bug.save();
+
+			// check if msg exists & update embed
+			if (bug.message_id && interaction.guild) {
+				const guild = await GuildModel.findOne({
+					guild_id: interaction.guild.id,
+				});
+				if (guild?.bug_channel) {
+					await updateBugEmbed(client, bug, bug.message_id, guild.bug_channel);
+				}
+			}
+
+			await interaction.reply({
+				content: `✅ bug #${bug.bug_id} updated!`,
+				flags: ["Ephemeral"],
+			});
+		} catch (error) {
+			logger.error("failed to update bug:", error);
+			await interaction.reply({
+				content: "❌ failed to update bug. please try again later.",
+				flags: ["Ephemeral"],
+			});
+		}
+		return;
+	}
+
+	const game = customIdParts[1];
 
 	try {
 		await createUserIfNotExists(interaction.user.id, interaction.guild.id);
@@ -213,25 +335,34 @@ async function modalExecute(
 	}
 }
 
-function getGameName(value: string): string {
-	switch (value) {
-		case "wft":
-			return "warfare tycoon";
-		case "gw":
-			return "ground war";
-		case "ab":
-			return "airsoft battles";
-		default:
-			return value;
-	}
-}
-
 async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 	const [, action, bugId] = interaction.customId.split(":");
 
 	if (action === "new") {
-		// todo: show select menu for the game
-		return;
+		const selectMenu = new StringSelectMenuBuilder()
+			.setCustomId("bug:game-select")
+			.setPlaceholder("select a game")
+			.addOptions(
+				new StringSelectMenuOptionBuilder()
+					.setLabel("warfare tycoon")
+					.setValue("wft"),
+				new StringSelectMenuOptionBuilder()
+					.setLabel("ground war")
+					.setValue("gw"),
+				new StringSelectMenuOptionBuilder()
+					.setLabel("airsoft battles")
+					.setValue("ab"),
+			);
+
+		const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+			selectMenu,
+		);
+
+		return interaction.reply({
+			content: "select a game to report a bug for:",
+			components: [row],
+			flags: ["Ephemeral"],
+		});
 	}
 
 	const member = interaction.member as GuildMember;
@@ -254,15 +385,139 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 		});
 	}
 
-	// todo: impl. different actions
 	switch (action) {
-		case "close":
+		case "close": {
+			const newStatus = bug.status === "closed" ? "open" : "closed";
+			bug.status = newStatus;
+			await bug.save();
+
+			// update the embed
+			if (bug.message_id && interaction.guild) {
+				const guild = await GuildModel.findOne({
+					guild_id: interaction.guild.id,
+				});
+				if (guild?.bug_channel) {
+					await updateBugEmbed(client, bug, bug.message_id, guild.bug_channel);
+				}
+			}
+
+			await interaction.reply({
+				content: `✅ bug #${bug.bug_id} ${newStatus === "closed" ? "closed" : "reopened"}.`,
+				flags: ["Ephemeral"],
+			});
 			break;
-		case "edit":
+		}
+
+		case "edit": {
+			if (bug.status === "closed") {
+				return interaction.reply({
+					content: "❌ cannot edit a closed bug.",
+					flags: ["Ephemeral"],
+				});
+			}
+
+			const modal = new ModalBuilder()
+				.setCustomId(`bug:edit:${bug.bug_id}`)
+				.setTitle(`edit bug #${bug.bug_id}`);
+
+			const titleInput = new TextInputBuilder()
+				.setCustomId("title")
+				.setLabel("bug title")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("short description of the bug")
+				.setRequired(true)
+				.setMaxLength(100)
+				.setValue(bug.title);
+
+			const descriptionInput = new TextInputBuilder()
+				.setCustomId("description")
+				.setLabel("bug description")
+				.setStyle(TextInputStyle.Paragraph)
+				.setPlaceholder(
+					"detailed description of the bug and steps to reproduce",
+				)
+				.setRequired(true)
+				.setMaxLength(1000)
+				.setValue(bug.description);
+
+			const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+				titleInput,
+			);
+			const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+				descriptionInput,
+			);
+
+			modal.addComponents(firstRow, secondRow);
+			await interaction.showModal(modal);
 			break;
-		case "delete":
+		}
+
+		case "delete": {
+			bug.deleteOne();
+
+			// delete the message if it exists
+			if (bug.message_id && interaction.guild) {
+				const guild = await GuildModel.findOne({
+					guild_id: interaction.guild.id,
+				});
+				if (guild?.bug_channel) {
+					try {
+						const channel = await client.channels.fetch(guild.bug_channel);
+						if (channel?.isTextBased() && "messages" in channel) {
+							const message = await channel.messages.fetch(bug.message_id);
+							await message.delete();
+						}
+					} catch (error) {
+						logger.error("failed to delete bug message:", error);
+					}
+				}
+			}
+
+			await interaction.reply({
+				content: `✅ bug #${bug.bug_id} deleted.`,
+				flags: ["Ephemeral"],
+			});
 			break;
+		}
 	}
+}
+
+async function selectMenuExecute(
+	_client: Client,
+	interaction: StringSelectMenuInteraction,
+) {
+	if (interaction.customId !== "bug:game-select") return;
+
+	const game = interaction.values[0];
+	const modal = new ModalBuilder()
+		.setCustomId(`bug:${game}`)
+		.setTitle(`report bug - ${getGameName(game)}`);
+
+	const titleInput = new TextInputBuilder()
+		.setCustomId("title")
+		.setLabel("bug title")
+		.setStyle(TextInputStyle.Short)
+		.setPlaceholder("short description of the bug")
+		.setRequired(true)
+		.setMaxLength(100);
+
+	const descriptionInput = new TextInputBuilder()
+		.setCustomId("description")
+		.setLabel("bug description")
+		.setStyle(TextInputStyle.Paragraph)
+		.setPlaceholder("detailed description of the bug and steps to reproduce")
+		.setRequired(true)
+		.setMaxLength(1000);
+
+	const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+		titleInput,
+	);
+	const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+		descriptionInput,
+	);
+
+	modal.addComponents(firstRow, secondRow);
+	await interaction.showModal(modal);
 }
 
 export default {
@@ -270,4 +525,5 @@ export default {
 	execute,
 	modalExecute,
 	buttonExecute,
+	selectMenuExecute,
 };
