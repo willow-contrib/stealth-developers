@@ -16,7 +16,13 @@ export const userSchema = z.object({
 	guild_id: z.string(),
 });
 
+const CounterSchema = new Schema({
+	_id: String,
+	sequence_value: { type: Number, default: 0 },
+});
+
 export const bugSchema = z.object({
+	bug_id: z.number(),
 	user_id: z.string(),
 	status: z.enum(["open", "closed"]).default("open"),
 	game: z.enum(["wft", "gw", "ab"]),
@@ -62,6 +68,7 @@ const UserSchema = new Schema(
 
 const BugSchema = new Schema(
 	{
+		bug_id: { type: Number, required: true, unique: true },
 		user_id: { type: String, required: true, ref: "User" },
 		status: { type: String, enum: ["open", "closed"], default: "open" },
 		title: { type: String, required: true },
@@ -87,7 +94,18 @@ const MediaSchema = new Schema(
 UserSchema.index({ user_id: 1, guild_id: 1 }, { unique: true });
 
 // models
-export const GuildModel = model<Guild>("Guild", GuildSchema);
-export const UserModel = model<User>("User", UserSchema);
-export const BugModel = model<Bug>("Bug", BugSchema);
-export const MediaModel = model<Media>("Media", MediaSchema);
+export const GuildModel = model<GuildType>("Guild", GuildSchema);
+export const UserModel = model<UserType>("User", UserSchema);
+export const BugModel = model<BugType>("Bug", BugSchema);
+export const MediaModel = model<MediaType>("Media", MediaSchema);
+export const CounterModel = model("Counter", CounterSchema);
+
+// funcs
+export async function getNextBugId(): Promise<number> {
+	const counter = await CounterModel.findByIdAndUpdate(
+		"bug_id",
+		{ $inc: { sequence_value: 1 } },
+		{ new: true, upsert: true },
+	);
+	return counter.sequence_value;
+}

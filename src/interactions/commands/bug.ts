@@ -1,5 +1,7 @@
 import {
 	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
 	ChannelType,
 	type ChatInputCommandInteraction,
 	type Client,
@@ -10,7 +12,7 @@ import {
 	TextInputBuilder,
 	TextInputStyle,
 } from "discord.js";
-import { BugModel, GuildModel } from "../../database/schemas.ts";
+import { BugModel, GuildModel, getNextBugId } from "../../database/schemas.ts";
 import { createUserIfNotExists } from "../../utils/exists.ts";
 import { Logger } from "../../utils/logging.ts";
 
@@ -106,7 +108,10 @@ async function modalExecute(
 	try {
 		await createUserIfNotExists(interaction.user.id, interaction.guild.id);
 
+		const bugId = await getNextBugId();
+
 		const bug = new BugModel({
+			bug_id: bugId,
 			user_id: interaction.user.id,
 			game,
 			title,
@@ -146,7 +151,7 @@ async function modalExecute(
 						.setTitle(title)
 						.setColor(0xff6b6b)
 						.setDescription(description)
-						.setFooter({ text: gameInfo.name })
+						.setFooter({ text: `${gameInfo.name} • bug #${bugId}` })
 						.setTimestamp();
 
 					const message = await channel.send({ embeds: [embed] });
