@@ -288,24 +288,36 @@ async function modalExecute(
 						new ButtonBuilder()
 							.setCustomId(`bug:edit:${bugId}`)
 							.setLabel("edit")
-							.setStyle(ButtonStyle.Primary)
-							.setEmoji("✏️"),
+							.setStyle(ButtonStyle.Primary),
 						new ButtonBuilder()
 							.setCustomId(`bug:delete:${bugId}`)
 							.setLabel("delete")
-							.setStyle(ButtonStyle.Danger)
-							.setEmoji("🗑️"),
+							.setStyle(ButtonStyle.Danger),
 						new ButtonBuilder()
 							.setCustomId("bug:new")
 							.setLabel("new bug")
-							.setStyle(ButtonStyle.Success)
-							.setEmoji("🐛"),
+							.setStyle(ButtonStyle.Success),
 					);
 
 					const message = await channel.send({
 						embeds: [embed],
 						components: [buttons],
 					});
+
+					try {
+						const thread = await message.startThread({
+							name: `#${bugId}: ${title.substring(0, 50)}${title.length > 50 ? "..." : ""}`,
+							reason: `bug report thread for bug #${bugId}`,
+						});
+
+						await thread.members.add(interaction.user.id);
+						await thread.send({
+							content: `thread created for bug #${bugId}. use this space to discuss the bug report, provide additional details, or ask questions.`,
+						});
+
+						bug.thread_id = thread.id;
+						await bug.save();
+					} catch (error) {}
 
 					msgUrl = message.url;
 

@@ -30,6 +30,7 @@ export const bugSchema = z.object({
 	description: z.string(),
 	sent: z.boolean().default(false),
 	message_id: z.string().optional(),
+	thread_id: z.string().optional(),
 });
 
 export const mediaSchema = z.object({
@@ -76,6 +77,7 @@ const BugSchema = new Schema(
 		description: { type: String, required: true },
 		sent: { type: Boolean, default: false },
 		message_id: String,
+		thread_id: String,
 	},
 	{ timestamps: true },
 );
