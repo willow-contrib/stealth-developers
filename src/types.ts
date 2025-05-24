@@ -8,8 +8,6 @@ import type {
 	StringSelectMenuInteraction,
 } from "discord.js";
 
-import type { Model } from "sequelize";
-
 export interface IEvent {
 	event: string;
 	execute: (client: Client, ...args: unknown[]) => Promise<void>;

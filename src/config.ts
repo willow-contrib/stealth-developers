@@ -1,6 +1,5 @@
 import fs from "node:fs";
 
-import { env } from "bun";
 import { z } from "zod";
 
 const discordSchema = z.object({
@@ -8,8 +7,15 @@ const discordSchema = z.object({
 	app_id: z.string(),
 });
 
+const mongodbSchema = z.object({
+	uri: z.string(),
+	database: z.string(),
+	collection: z.string(),
+});
+
 const schema = z.object({
 	discord: discordSchema,
+	mongodb: mongodbSchema,
 });
 
 function validateConfig() {

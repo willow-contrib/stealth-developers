@@ -31,7 +31,7 @@ async function registerEvents(client: Client) {
 		);
 	}
 
-	logger.info(`registered ${events.size} events.`);
+	logger.info(`registered ${events.size} events`);
 }
 
 export default registerEvents;

@@ -3,13 +3,16 @@
   "module": "src/index.ts",
   "type": "module",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/mongoose": "^5.11.97"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "discord.js": "^14.19.3",
+    "mongodb": "^6.16.0",
+    "mongoose": "^8.15.0",
     "zod": "^3.24.4"
   }
 }

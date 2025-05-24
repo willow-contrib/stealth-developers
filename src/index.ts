@@ -1,5 +1,6 @@
 import { Client, Events, GatewayIntentBits } from "discord.js";
 
+import { connectDatabase } from "./database/connection";
 import registerEvents from "./handlers/events.ts";
 import registerInteractions from "./handlers/interactions.ts";
 
@@ -18,6 +19,7 @@ const client = new Client({
 client.on(Events.ClientReady, async (client) => {
 	logger.info(`logged in as ${client.user?.tag}!`);
 
+	await connectDatabase();
 	await Promise.all([registerEvents(client), registerInteractions(client)]);
 	logger.info("events and interactions registered!");
 	logger.newLine();

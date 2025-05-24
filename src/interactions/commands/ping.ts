@@ -4,7 +4,9 @@ import {
 	SlashCommandBuilder,
 } from "discord.js";
 
-const commandData = new SlashCommandBuilder().setName("ping");
+const commandData = new SlashCommandBuilder()
+	.setName("ping")
+	.setDescription("ping the bot");
 
 async function execute(
 	client: Client,
