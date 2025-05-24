@@ -1,18 +1,38 @@
 import {
 	ActionRowBuilder,
+	ChannelType,
 	type ChatInputCommandInteraction,
 	type Client,
+	EmbedBuilder,
 	ModalBuilder,
 	type ModalSubmitInteraction,
 	SlashCommandBuilder,
 	TextInputBuilder,
 	TextInputStyle,
 } from "discord.js";
-import { BugModel, UserModel } from "../../database/schemas.ts";
+import { BugModel, GuildModel } from "../../database/schemas.ts";
 import { createUserIfNotExists } from "../../utils/exists.ts";
 import { Logger } from "../../utils/logging.ts";
 
 const logger = new Logger("bug-command");
+
+const GAME_MAP = {
+	gw: {
+		name: "ground war",
+		iconURL:
+			"https://tr.rbxcdn.com/180DAY-7f58a11cdd59397e06d2b291326df71b/150/150/Image/Webp/noFilter",
+	},
+	wft: {
+		name: "warfare tycoon",
+		iconURL:
+			"https://tr.rbxcdn.com/180DAY-ed309245ae50b509504c403a433ec0d2/150/150/Image/Webp/noFilter",
+	},
+	ab: {
+		name: "airsoft battles",
+		iconURL:
+			"https://tr.rbxcdn.com/180DAY-43ff702ae43b081ec8db160d1a1d6636/150/150/Image/Webp/noFilter",
+	},
+};
 
 const commandData = new SlashCommandBuilder()
 	.setName("bug")
@@ -68,7 +88,7 @@ async function execute(
 }
 
 async function modalExecute(
-	_client: Client,
+	client: Client,
 	interaction: ModalSubmitInteraction,
 ) {
 	if (!interaction.guild) {
@@ -98,8 +118,55 @@ async function modalExecute(
 		await bug.save();
 		logger.info(`bug report created: ${bug._id}`);
 
+		// send to bug channel if configured
+		const guild = await GuildModel.findOne({
+			guild_id: interaction.guild.id,
+		});
+		let msgUrl = "";
+
+		if (guild?.bug_channel) {
+			try {
+				const channel = await client.channels.fetch(guild.bug_channel);
+				if (channel?.type !== ChannelType.GuildText) {
+					await interaction.reply({
+						content: "❌ the bug channel is misconfigured",
+					});
+				}
+
+				if (channel?.isTextBased() && "send" in channel) {
+					const gameInfo = GAME_MAP[game as keyof typeof GAME_MAP];
+
+					const embed = new EmbedBuilder()
+						.setAuthor({
+							name: interaction.user.displayName,
+							url: `https://discord.com/users/${interaction.user.id}`,
+							iconURL: interaction.user?.avatarURL() || undefined,
+						})
+						.setThumbnail(gameInfo.iconURL)
+						.setTitle(title)
+						.setColor(0xff6b6b)
+						.setDescription(description)
+						.setFooter({ text: gameInfo.name })
+						.setTimestamp();
+
+					const message = await channel.send({ embeds: [embed] });
+					msgUrl = message.url;
+
+					bug.message_id = message.id;
+					bug.sent = true;
+					await bug.save();
+
+					logger.info(
+						`sent bug report ${bug._id} to channel ${guild.bug_channel}`,
+					);
+				}
+			} catch (error) {
+				logger.error(`failed to send bug report to channel: ${error}`);
+			}
+		}
+
 		await interaction.reply({
-			content: `✅ bug report submitted!\n\n**game:** ${getGameName(game)}\n**title:** ${title}\n**id:** \`${bug._id}\``,
+			content: `✅ bug report submitted! ${msgUrl}`,
 			flags: ["Ephemeral"],
 		});
 	} catch (error) {
