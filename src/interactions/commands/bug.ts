@@ -1,11 +1,13 @@
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
+	type ButtonInteraction,
 	ButtonStyle,
 	ChannelType,
 	type ChatInputCommandInteraction,
 	type Client,
 	EmbedBuilder,
+	type GuildMember,
 	ModalBuilder,
 	type ModalSubmitInteraction,
 	SlashCommandBuilder,
@@ -15,6 +17,7 @@ import {
 import { BugModel, GuildModel, getNextBugId } from "../../database/schemas.ts";
 import { createUserIfNotExists } from "../../utils/exists.ts";
 import { Logger } from "../../utils/logging.ts";
+import { hasManagerPermissions } from "../../utils/permissions.ts";
 
 const logger = new Logger("bug-command");
 
@@ -154,7 +157,34 @@ async function modalExecute(
 						.setFooter({ text: `${gameInfo.name} • bug #${bugId}` })
 						.setTimestamp();
 
-					const message = await channel.send({ embeds: [embed] });
+					const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+						new ButtonBuilder()
+							.setCustomId(`bug:close:${bugId}`)
+							.setLabel("close")
+							.setStyle(ButtonStyle.Secondary)
+							.setEmoji("🔒"),
+						new ButtonBuilder()
+							.setCustomId(`bug:edit:${bugId}`)
+							.setLabel("edit")
+							.setStyle(ButtonStyle.Primary)
+							.setEmoji("✏️"),
+						new ButtonBuilder()
+							.setCustomId(`bug:delete:${bugId}`)
+							.setLabel("delete")
+							.setStyle(ButtonStyle.Danger)
+							.setEmoji("🗑️"),
+						new ButtonBuilder()
+							.setCustomId("bug:new")
+							.setLabel("new bug")
+							.setStyle(ButtonStyle.Success)
+							.setEmoji("🐛"),
+					);
+
+					const message = await channel.send({
+						embeds: [embed],
+						components: [buttons],
+					});
+
 					msgUrl = message.url;
 
 					bug.message_id = message.id;
@@ -196,8 +226,48 @@ function getGameName(value: string): string {
 	}
 }
 
+async function buttonExecute(client: Client, interaction: ButtonInteraction) {
+	const [, action, bugId] = interaction.customId.split(":");
+
+	if (action === "new") {
+		// todo: show select menu for the game
+		return;
+	}
+
+	const member = interaction.member as GuildMember;
+	const isManager = await hasManagerPermissions(member);
+
+	const bug = await BugModel.findOne({ bug_id: Number.parseInt(bugId) });
+	if (!bug) {
+		return interaction.reply({
+			content: "❌ bug not found.",
+			flags: ["Ephemeral"],
+		});
+	}
+
+	const isAuthor = bug.user_id === interaction.user.id;
+
+	if (!isManager && !isAuthor) {
+		return interaction.reply({
+			content: "❌ you don't have permission to do this.",
+			flags: ["Ephemeral"],
+		});
+	}
+
+	// todo: impl. different actions
+	switch (action) {
+		case "close":
+			break;
+		case "edit":
+			break;
+		case "delete":
+			break;
+	}
+}
+
 export default {
 	data: commandData,
 	execute,
 	modalExecute,
+	buttonExecute,
 };
