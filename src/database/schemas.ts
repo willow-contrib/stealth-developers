@@ -34,10 +34,10 @@ export const mediaSchema = z.object({
 });
 
 // ts types
-export type Guild = z.infer<typeof guildSchema> & Document;
-export type User = z.infer<typeof userSchema> & Document;
-export type Bug = z.infer<typeof bugSchema> & Document;
-export type Media = z.infer<typeof mediaSchema> & Document;
+export type GuildType = z.infer<typeof guildSchema> & Document;
+export type UserType = z.infer<typeof userSchema> & Document;
+export type BugType = z.infer<typeof bugSchema> & Document;
+export type MediaType = z.infer<typeof mediaSchema> & Document;
 
 // mongoose schemas
 const GuildSchema = new Schema(
