@@ -19,6 +19,7 @@ export const userSchema = z.object({
 export const bugSchema = z.object({
 	user_id: z.string(),
 	status: z.enum(["open", "closed"]).default("open"),
+	game: z.enum(["wft", "gw", "ab"]),
 	title: z.string(),
 	description: z.string(),
 	sent: z.boolean().default(false),
@@ -64,6 +65,7 @@ const BugSchema = new Schema(
 		user_id: { type: String, required: true, ref: "User" },
 		status: { type: String, enum: ["open", "closed"], default: "open" },
 		title: { type: String, required: true },
+		game: { type: String, enum: ["wft", "gw", "ab"], required: true },
 		description: { type: String, required: true },
 		sent: { type: Boolean, default: false },
 		message_id: String,
