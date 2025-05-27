@@ -13,9 +13,23 @@ const mongodbSchema = z.object({
 	collection: z.string(),
 });
 
+// record
+// projects: {
+//    [gameInitials: string]: { name: string, displayName: string, iconURL: string },
+//    [gameInitials: string]: { name: string, displayName: string, iconURL: string },
+// }
+const projectSchema = z.record(
+	z.object({
+		name: z.string(),
+		displayName: z.string(),
+		iconURL: z.string().optional(),
+	}),
+);
+
 const schema = z.object({
 	discord: discordSchema,
 	mongodb: mongodbSchema,
+	projects: projectSchema,
 });
 
 function validateConfig() {

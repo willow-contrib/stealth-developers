@@ -17,6 +17,7 @@ import {
 	TextInputBuilder,
 	TextInputStyle,
 } from "discord.js";
+import config from "../../config.ts";
 import {
 	BugModel,
 	type BugType,
@@ -30,35 +31,13 @@ import { hasManagerPermissions } from "../../utils/permissions.ts";
 const logger = new Logger("bug-command");
 
 // misc
-const GAME_MAP = {
-	gw: {
-		name: "ground war",
-		iconURL:
-			"https://tr.rbxcdn.com/180DAY-7f58a11cdd59397e06d2b291326df71b/150/150/Image/Webp/noFilter",
-	},
-	wft: {
-		name: "warfare tycoon",
-		iconURL:
-			"https://tr.rbxcdn.com/180DAY-ed309245ae50b509504c403a433ec0d2/150/150/Image/Webp/noFilter",
-	},
-	ab: {
-		name: "airsoft battles",
-		iconURL:
-			"https://tr.rbxcdn.com/180DAY-43ff702ae43b081ec8db160d1a1d6636/150/150/Image/Webp/noFilter",
-	},
-};
+const PROJECT_MAP = config.data.projects;
 
-function getGameName(value: string): string {
-	switch (value) {
-		case "wft":
-			return "warfare tycoon";
-		case "gw":
-			return "ground war";
-		case "ab":
-			return "airsoft battles";
-		default:
-			return value;
-	}
+function getProjectName(value: string): string {
+	const project = PROJECT_MAP[value as keyof typeof PROJECT_MAP];
+	if (!project) return "unknown project";
+
+	return project.name;
 }
 
 async function updateBugEmbed(
@@ -72,7 +51,7 @@ async function updateBugEmbed(
 		if (!channel?.isTextBased() || !("messages" in channel)) return;
 
 		const message = await channel.messages.fetch(messageId);
-		const gameInfo = GAME_MAP[bug.game as keyof typeof GAME_MAP];
+		const projectInfo = PROJECT_MAP[bug.project as keyof typeof PROJECT_MAP];
 
 		const embed = new EmbedBuilder()
 			.setAuthor({
@@ -80,14 +59,15 @@ async function updateBugEmbed(
 				url: message.embeds[0].author?.url,
 				iconURL: message.embeds[0].author?.iconURL,
 			})
-			.setThumbnail(gameInfo.iconURL)
 			.setTitle(bug.title)
 			.setColor(bug.status === "closed" ? 0x95a5a6 : 0xff6b6b)
 			.setDescription(bug.description)
 			.setFooter({
-				text: `${gameInfo.name} • bug #${bug.bug_id} • ${bug.status}`,
+				text: `${projectInfo.name} • bug #${bug.bug_id} • ${bug.status}`,
 			})
 			.setTimestamp();
+
+		if (projectInfo.iconURL) embed.setThumbnail(projectInfo.iconURL);
 
 		// disable buttons if closed
 		const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -118,30 +98,31 @@ async function updateBugEmbed(
 }
 
 // command stuff
+const choices = Object.entries(PROJECT_MAP).map(([key, project]) => ({
+	name: project.displayName,
+	value: key,
+}));
+
 const commandData = new SlashCommandBuilder()
 	.setName("bug")
 	.setDescription("report a bug")
 	.addStringOption((option) =>
 		option
-			.setName("game")
-			.setDescription("which game this bug affects")
+			.setName("project")
+			.setDescription("which project this bug affects")
 			.setRequired(true)
-			.addChoices(
-				{ name: "warfare tycoon", value: "wft" },
-				{ name: "ground war", value: "gw" },
-				{ name: "airsoft battles", value: "ab" },
-			),
+			.addChoices(...choices),
 	);
 
 async function execute(
 	_client: Client,
 	interaction: ChatInputCommandInteraction,
 ) {
-	const game = interaction.options.getString("game", true);
+	const project = interaction.options.getString("project", true);
 
 	const modal = new ModalBuilder()
-		.setCustomId(`bug:${game}`)
-		.setTitle(`report bug - ${getGameName(game)}`);
+		.setCustomId(`bug:${project}`)
+		.setTitle(`report bug - ${getProjectName(project)}`);
 
 	const titleInput = new TextInputBuilder()
 		.setCustomId("title")
@@ -228,7 +209,7 @@ async function modalExecute(
 		return;
 	}
 
-	const game = customIdParts[1];
+	const project = customIdParts[1];
 
 	try {
 		await createUserIfNotExists(interaction.user.id, interaction.guild.id);
@@ -238,7 +219,7 @@ async function modalExecute(
 		const bug = new BugModel({
 			bug_id: bugId,
 			user_id: interaction.user.id,
-			game,
+			project,
 			title,
 			description,
 			status: "open",
@@ -264,7 +245,7 @@ async function modalExecute(
 				}
 
 				if (channel?.isTextBased() && "send" in channel) {
-					const gameInfo = GAME_MAP[game as keyof typeof GAME_MAP];
+					const projectInfo = PROJECT_MAP[project as keyof typeof PROJECT_MAP];
 
 					const embed = new EmbedBuilder()
 						.setAuthor({
@@ -272,12 +253,13 @@ async function modalExecute(
 							url: `https://discord.com/users/${interaction.user.id}`,
 							iconURL: interaction.user?.avatarURL() || undefined,
 						})
-						.setThumbnail(gameInfo.iconURL)
 						.setTitle(title)
 						.setColor(0xff6b6b)
 						.setDescription(description)
-						.setFooter({ text: `${gameInfo.name} • bug #${bugId}` })
+						.setFooter({ text: `${projectInfo.name} • bug #${bugId}` })
 						.setTimestamp();
+
+					if (projectInfo.iconURL) embed.setThumbnail(projectInfo.iconURL);
 
 					const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
 						new ButtonBuilder()
@@ -312,7 +294,7 @@ async function modalExecute(
 
 						await thread.members.add(interaction.user.id);
 						await thread.send({
-							content: `thread created for bug #${bugId}. use this space to discuss the bug report, provide additional details, or ask questions.`,
+							content: `thread created for bug #${bugId} affecting ${projectInfo.displayName}. use this space to discuss the bug report, provide additional details, or ask questions.`,
 						});
 
 						bug.thread_id = thread.id;
@@ -352,8 +334,8 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 
 	if (action === "new") {
 		const selectMenu = new StringSelectMenuBuilder()
-			.setCustomId("bug:game-select")
-			.setPlaceholder("select a game")
+			.setCustomId("bug:project-select")
+			.setPlaceholder("select a project")
 			.addOptions(
 				new StringSelectMenuOptionBuilder()
 					.setLabel("warfare tycoon")
@@ -371,7 +353,7 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 		);
 
 		return interaction.reply({
-			content: "select a game to report a bug for:",
+			content: "select a project to report a bug for:",
 			components: [row],
 			flags: ["Ephemeral"],
 		});
@@ -498,12 +480,12 @@ async function selectMenuExecute(
 	_client: Client,
 	interaction: StringSelectMenuInteraction,
 ) {
-	if (interaction.customId !== "bug:game-select") return;
+	if (interaction.customId !== "bug:project-select") return;
 
-	const game = interaction.values[0];
+	const project = interaction.values[0];
 	const modal = new ModalBuilder()
-		.setCustomId(`bug:${game}`)
-		.setTitle(`report bug - ${getGameName(game)}`);
+		.setCustomId(`bug:${project}`)
+		.setTitle(`report bug - ${getProjectName(project)}`);
 
 	const titleInput = new TextInputBuilder()
 		.setCustomId("title")
