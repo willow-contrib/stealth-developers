@@ -10,111 +10,32 @@ import {
 	type GuildMember,
 	ModalBuilder,
 	type ModalSubmitInteraction,
-	SlashCommandBuilder,
 	StringSelectMenuBuilder,
 	type StringSelectMenuInteraction,
 	StringSelectMenuOptionBuilder,
 	TextInputBuilder,
 	TextInputStyle,
 } from "discord.js";
-import config from "../../config.ts";
 import {
 	BugModel,
-	type BugType,
 	GuildModel,
 	getNextBugId,
-} from "../../database/schemas.ts";
-import { createUserIfNotExists } from "../../utils/exists.ts";
-import { Logger } from "../../utils/logging.ts";
-import { hasManagerPermissions } from "../../utils/permissions.ts";
+} from "../../../database/schemas.ts";
+import { createUserIfNotExists } from "../../../utils/exists.ts";
+import { Logger } from "../../../utils/logging.ts";
+import { hasManagerPermissions } from "../../../utils/permissions.ts";
+import { PROJECT_MAP, getProjectName, updateBugEmbed } from "./shared.ts";
 
-const logger = new Logger("bug-command");
+const logger = new Logger("bug-report");
 
-// misc
-const PROJECT_MAP = config.data.projects;
-
-function getProjectName(value: string): string {
-	const project = PROJECT_MAP[value as keyof typeof PROJECT_MAP];
-	if (!project) return "unknown project";
-
-	return project.name;
+export function getProjectChoices() {
+	return Object.entries(PROJECT_MAP).map(([key, project]) => ({
+		name: project.displayName,
+		value: key,
+	}));
 }
 
-async function updateBugEmbed(
-	client: Client,
-	bug: BugType,
-	messageId: string,
-	channelId: string,
-) {
-	try {
-		const channel = await client.channels.fetch(channelId);
-		if (!channel?.isTextBased() || !("messages" in channel)) return;
-
-		const message = await channel.messages.fetch(messageId);
-		const projectInfo = PROJECT_MAP[bug.project as keyof typeof PROJECT_MAP];
-
-		const embed = new EmbedBuilder()
-			.setAuthor({
-				name: message.embeds[0].author?.name || "unknown user",
-				url: message.embeds[0].author?.url,
-				iconURL: message.embeds[0].author?.iconURL,
-			})
-			.setTitle(bug.title)
-			.setColor(bug.status === "closed" ? 0x95a5a6 : 0xff6b6b)
-			.setDescription(bug.description)
-			.setFooter({
-				text: `${projectInfo.name} • bug #${bug.bug_id} • ${bug.status}`,
-			})
-			.setTimestamp();
-
-		if (projectInfo.iconURL) embed.setThumbnail(projectInfo.iconURL);
-
-		// disable buttons if closed
-		const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-			new ButtonBuilder()
-				.setCustomId(`bug:close:${bug.bug_id}`)
-				.setLabel(bug.status === "closed" ? "reopen" : "close")
-				.setStyle(ButtonStyle.Secondary)
-				.setEmoji(bug.status === "closed" ? "🔓" : "🔒"),
-			new ButtonBuilder()
-				.setCustomId(`bug:edit:${bug.bug_id}`)
-				.setLabel("edit")
-				.setStyle(ButtonStyle.Primary)
-				.setDisabled(bug.status === "closed"),
-			new ButtonBuilder()
-				.setCustomId(`bug:delete:${bug.bug_id}`)
-				.setLabel("delete")
-				.setStyle(ButtonStyle.Danger),
-			new ButtonBuilder()
-				.setCustomId("bug:new")
-				.setLabel("new bug")
-				.setStyle(ButtonStyle.Success),
-		);
-
-		await message.edit({ embeds: [embed], components: [buttons] });
-	} catch (error) {
-		logger.error("failed to update bug embed:", error);
-	}
-}
-
-// command stuff
-const choices = Object.entries(PROJECT_MAP).map(([key, project]) => ({
-	name: project.displayName,
-	value: key,
-}));
-
-const commandData = new SlashCommandBuilder()
-	.setName("bug")
-	.setDescription("report a bug")
-	.addStringOption((option) =>
-		option
-			.setName("project")
-			.setDescription("which project this bug affects")
-			.setRequired(true)
-			.addChoices(...choices),
-	);
-
-async function execute(
+export async function execute(
 	_client: Client,
 	interaction: ChatInputCommandInteraction,
 ) {
@@ -148,11 +69,10 @@ async function execute(
 	);
 
 	modal.addComponents(firstRow, secondRow);
-
 	await interaction.showModal(modal);
 }
 
-async function modalExecute(
+export async function modalExecute(
 	client: Client,
 	interaction: ModalSubmitInteraction,
 ) {
@@ -175,17 +95,17 @@ async function modalExecute(
 		try {
 			const bug = await BugModel.findOne({ bug_id: bugId });
 			if (!bug) {
-				return interaction.reply({
+				await interaction.reply({
 					content: "❌ bug not found.",
 					flags: ["Ephemeral"],
 				});
+				return;
 			}
 
 			bug.title = title;
 			bug.description = description;
 			await bug.save();
 
-			// check if msg exists & update embed
 			if (bug.message_id && interaction.guild) {
 				const guild = await GuildModel.findOne({
 					guild_id: interaction.guild.id,
@@ -329,7 +249,10 @@ async function modalExecute(
 	}
 }
 
-async function buttonExecute(client: Client, interaction: ButtonInteraction) {
+export async function buttonExecute(
+	client: Client,
+	interaction: ButtonInteraction,
+) {
 	const [, action, bugId] = interaction.customId.split(":");
 
 	if (action === "new") {
@@ -348,11 +271,12 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 			selectMenu,
 		);
 
-		return interaction.reply({
+		await interaction.reply({
 			content: "select a project to report a bug for:",
 			components: [row],
 			flags: ["Ephemeral"],
 		});
+		return;
 	}
 
 	const member = interaction.member as GuildMember;
@@ -360,19 +284,21 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 
 	const bug = await BugModel.findOne({ bug_id: Number.parseInt(bugId) });
 	if (!bug) {
-		return interaction.reply({
+		await interaction.reply({
 			content: "❌ bug not found.",
 			flags: ["Ephemeral"],
 		});
+		return;
 	}
 
 	const isAuthor = bug.user_id === interaction.user.id;
 
 	if (!isManager && !isAuthor) {
-		return interaction.reply({
+		await interaction.reply({
 			content: "❌ you don't have permission to do this.",
 			flags: ["Ephemeral"],
 		});
+		return;
 	}
 
 	switch (action) {
@@ -381,7 +307,6 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 			bug.status = newStatus;
 			await bug.save();
 
-			// update the embed
 			if (bug.message_id && interaction.guild) {
 				const guild = await GuildModel.findOne({
 					guild_id: interaction.guild.id,
@@ -400,10 +325,11 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 
 		case "edit": {
 			if (bug.status === "closed") {
-				return interaction.reply({
+				await interaction.reply({
 					content: "❌ cannot edit a closed bug.",
 					flags: ["Ephemeral"],
 				});
+				return;
 			}
 
 			const modal = new ModalBuilder()
@@ -445,7 +371,6 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 		case "delete": {
 			bug.deleteOne();
 
-			// delete the message if it exists
 			if (bug.message_id && interaction.guild) {
 				const guild = await GuildModel.findOne({
 					guild_id: interaction.guild.id,
@@ -472,7 +397,7 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 	}
 }
 
-async function selectMenuExecute(
+export async function selectMenuExecute(
 	_client: Client,
 	interaction: StringSelectMenuInteraction,
 ) {
@@ -510,10 +435,10 @@ async function selectMenuExecute(
 	await interaction.showModal(modal);
 }
 
-export default {
-	data: commandData,
+export const reportCommand = {
 	execute,
 	modalExecute,
 	buttonExecute,
 	selectMenuExecute,
+	getProjectChoices,
 };

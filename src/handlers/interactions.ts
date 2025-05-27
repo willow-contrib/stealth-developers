@@ -12,6 +12,8 @@ export const commands = new Collection<string, ICommand>();
 async function getCommands(): Promise<ICommand[]> {
 	const processFile = async (fileUrl: string) => {
 		const { default: interaction } = await import(fileUrl);
+		if (!interaction) return;
+
 		if (!interaction.data) {
 			logger.info(`${fileUrl} does not have a data property, skipping`);
 			return;
