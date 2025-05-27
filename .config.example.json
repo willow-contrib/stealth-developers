@@ -2,5 +2,16 @@
 	"discord": {
 		"token": "",
 		"app_id": ""
+	},
+	"mongodb": {
+		"uri": "",
+		"database": ""
+	},
+	"projects": {
+		"short": {
+			"name": "name",
+			"displayName": "Formatted Name",
+			"iconURL": "URL of icon - optional"
+		}
 	}
 }
