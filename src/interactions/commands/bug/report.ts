@@ -1,3 +1,4 @@
+import config from "@/config.ts";
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -181,6 +182,17 @@ export async function modalExecute(
 
 					if (projectInfo.iconURL) embed.setThumbnail(projectInfo.iconURL);
 
+					const trelloUrlParts = [
+						"https://trello.com/addCard?name=",
+						encodeURIComponent(title),
+						"&url=",
+						encodeURIComponent(
+							interaction.message?.url || "https://example.com",
+						),
+						"&idBoard=",
+						config.data?.trelloBoardId || "",
+					];
+
 					const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
 						new ButtonBuilder()
 							.setCustomId(`bug:close:${bugId}`)
@@ -195,6 +207,10 @@ export async function modalExecute(
 							.setCustomId(`bug:delete:${bugId}`)
 							.setLabel("delete")
 							.setStyle(ButtonStyle.Danger),
+						new ButtonBuilder()
+							.setStyle(ButtonStyle.Link)
+							.setLabel("add to trello")
+							.setURL(trelloUrlParts.join("")),
 						new ButtonBuilder()
 							.setCustomId("bug:new")
 							.setLabel("new bug")
@@ -214,7 +230,12 @@ export async function modalExecute(
 
 						await thread.members.add(interaction.user.id);
 						await thread.send({
-							content: `thread created for bug #${bugId} affecting ${projectInfo.displayName}. use this space to discuss the bug report, provide additional details, or ask questions.`,
+							content:
+								`thread created for bug #${bugId} affecting ${projectInfo.displayName}.
+							use this space to discuss the bug report, provide additional
+							details, or ask questions.`
+									.replace(/\s+/g, " ")
+									.trim(),
 						});
 
 						bug.thread_id = thread.id;

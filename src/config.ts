@@ -24,6 +24,7 @@ const schema = z.object({
 	discord: discordSchema,
 	mongodb: mongodbSchema,
 	projects: projectSchema,
+	trelloBoardId: z.string().optional(),
 });
 
 function validateConfig() {
