@@ -10,14 +10,8 @@ const discordSchema = z.object({
 const mongodbSchema = z.object({
 	uri: z.string(),
 	database: z.string(),
-	collection: z.string(),
 });
 
-// record
-// projects: {
-//    [gameInitials: string]: { name: string, displayName: string, iconURL: string },
-//    [gameInitials: string]: { name: string, displayName: string, iconURL: string },
-// }
 const projectSchema = z.record(
 	z.object({
 		name: z.string(),
