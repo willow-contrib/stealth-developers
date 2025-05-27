@@ -333,20 +333,16 @@ async function buttonExecute(client: Client, interaction: ButtonInteraction) {
 	const [, action, bugId] = interaction.customId.split(":");
 
 	if (action === "new") {
+		const options = Object.entries(PROJECT_MAP).map(([key, project]) =>
+			new StringSelectMenuOptionBuilder()
+				.setLabel(project.displayName)
+				.setValue(key),
+		);
+
 		const selectMenu = new StringSelectMenuBuilder()
 			.setCustomId("bug:project-select")
 			.setPlaceholder("select a project")
-			.addOptions(
-				new StringSelectMenuOptionBuilder()
-					.setLabel("warfare tycoon")
-					.setValue("wft"),
-				new StringSelectMenuOptionBuilder()
-					.setLabel("ground war")
-					.setValue("gw"),
-				new StringSelectMenuOptionBuilder()
-					.setLabel("airsoft battles")
-					.setValue("ab"),
-			);
+			.addOptions(...options);
 
 		const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
 			selectMenu,
