@@ -1,5 +1,4 @@
 import fs from "node:fs";
-
 import { z } from "zod";
 
 const discordSchema = z.object({
