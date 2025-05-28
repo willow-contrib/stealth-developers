@@ -1,18 +1,32 @@
 {
-  "name": "template",
-  "module": "src/index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/mongoose": "^5.11.97"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "discord.js": "^14.19.3",
-    "mongodb": "^6.16.0",
-    "mongoose": "^8.15.0",
-    "zod": "^3.24.4"
-  }
+	"name": "template",
+	"module": "src/index.ts",
+	"type": "module",
+	"license": "AGPL-3.0-only",
+	"author": {
+		"name": "willow",
+		"email": "hai@wlo.moe",
+		"url": "https://wlo.moe."
+	},
+	"scripts": {
+		"start": "bun run src/index.ts",
+		"dev": "bun run src/index.ts --watch",
+		"fmt": "bunx biome format --write src/**/*",
+		"lint": "bunx biome lint src/**/*",
+		"check": "bunx biome check src/**/*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@types/bun": "latest",
+		"@types/mongoose": "^5.11.97"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"discord.js": "^14.19.3",
+		"mongodb": "^6.16.0",
+		"mongoose": "^8.15.0",
+		"zod": "^3.24.4"
+	}
 }
