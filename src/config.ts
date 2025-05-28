@@ -28,7 +28,11 @@ const schema = z.object({
 });
 
 function validateConfig() {
-	const runtimeConfig = JSON.parse(fs.readFileSync(".config.json", "utf8"));
+	const env = process.env.NODE_ENV || "DEV";
+
+	const runtimeConfig = JSON.parse(
+		fs.readFileSync(`.config.${env}.json`, "utf8"),
+	);
 	const conf = schema.safeParse(runtimeConfig);
 	if (conf.success) return conf.data;
 

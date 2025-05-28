@@ -7,7 +7,7 @@ discord bot for the stealth developers community.
 ### requirements
 
 - bun
-  get it here https://bun.sh/
+  - get it here https://bun.sh/
 
 - a mongodb database
   - get it here https://www.mongodb.com/try/download/community
@@ -27,8 +27,12 @@ cd stealth-developers
 bun install
 ```
 
-configure variables in `.config.json`, copy `.config.example.json` to
-`.config.json` and fill in the values.
+configure variables in `.config.{ENVIRONMENT}.json`, copy `.config.example.json`
+to `.config.json` and fill in the values.
+
+`ENVIRONMENT` is defined by the `NODE_ENV` environment variable; if not set, it
+will default to `DEV`.
+
 
 ### running
 
