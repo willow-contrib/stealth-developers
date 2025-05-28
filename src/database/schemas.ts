@@ -1,58 +1,21 @@
-import { type Document, Schema, model } from "mongoose";
-import { z } from "zod";
-
+import {
+	type HydratedDocument,
+	type InferSchemaType,
+	Schema,
+	model,
+} from "mongoose";
 import config from "../config";
 const uniqueProjects = Object.keys(config.data.projects) as [
 	string,
 	...string[],
 ];
 
-// zod schemas for validation
-export const guildSchema = z.object({
-	guild_id: z.string(),
-	suggestion_forum: z.string().optional(),
-	bug_channel: z.string().optional(),
-	commands_channel: z.string().optional(),
-	highlights_channel: z.string().optional(),
-	manager_roles: z.array(z.string()).default([]),
-});
-
-export const userSchema = z.object({
-	user_id: z.string(),
-	guild_id: z.string(),
-});
-
+// mongoose schemas
 const CounterSchema = new Schema({
 	_id: String,
 	sequence_value: { type: Number, default: 0 },
 });
 
-export const bugSchema = z.object({
-	bug_id: z.number(),
-	user_id: z.string(),
-	status: z.enum(["open", "closed"]).default("open"),
-	project: z.enum(uniqueProjects),
-	title: z.string(),
-	description: z.string(),
-	sent: z.boolean().default(false),
-	message_id: z.string().optional(),
-	thread_id: z.string().optional(),
-});
-
-export const mediaSchema = z.object({
-	media_type: z.enum(["image", "video"]),
-	data: z.instanceof(Buffer),
-	user_id: z.string(),
-	bug_id: z.string().optional(),
-});
-
-// ts types
-export type GuildType = z.infer<typeof guildSchema> & Document;
-export type UserType = z.infer<typeof userSchema> & Document;
-export type BugType = z.infer<typeof bugSchema> & Document;
-export type MediaType = z.infer<typeof mediaSchema> & Document;
-
-// mongoose schemas
 const GuildSchema = new Schema(
 	{
 		guild_id: { type: String, required: true, unique: true },
@@ -100,6 +63,12 @@ const MediaSchema = new Schema(
 
 // compound indexes for better perf
 UserSchema.index({ user_id: 1, guild_id: 1 }, { unique: true });
+
+// types
+export type GuildType = HydratedDocument<InferSchemaType<typeof GuildSchema>>;
+export type UserType = HydratedDocument<InferSchemaType<typeof UserSchema>>;
+export type BugType = HydratedDocument<InferSchemaType<typeof BugSchema>>;
+export type MediaType = HydratedDocument<InferSchemaType<typeof MediaSchema>>;
 
 // models
 export const GuildModel = model<GuildType>("Guild", GuildSchema);
