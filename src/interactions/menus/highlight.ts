@@ -3,10 +3,9 @@ import { Logger } from "@/utils/logging";
 import {
 	ApplicationCommandType,
 	type Attachment,
-	type Channel,
-	ChannelType,
 	type Client,
 	ContextMenuCommandBuilder,
+	type GuildTextBasedChannel,
 	type MessageContextMenuCommandInteraction,
 } from "discord.js";
 
@@ -62,7 +61,6 @@ async function execute(
 	}
 
 	const videoAttachments = targetMessage.attachments.filter(isVideoAttachment);
-
 	const videoLinks = extractVideoLinks(targetMessage);
 
 	if (videoAttachments.size === 0 && videoLinks.length === 0) {
@@ -73,11 +71,11 @@ async function execute(
 		return;
 	}
 
-	let highlightsChannel: Channel | null = null;
+	let highlightsChannel: GuildTextBasedChannel | null = null;
 	try {
-		highlightsChannel = await client.channels.fetch(
+		highlightsChannel = (await client.channels.fetch(
 			guildConfig.highlights_channel,
-		);
+		)) as GuildTextBasedChannel | null;
 	} catch (e) {
 		logger.error("failed to fetch highlights channel:", e);
 		await interaction.editReply({
@@ -89,13 +87,6 @@ async function execute(
 	if (!highlightsChannel) {
 		await interaction.editReply({
 			content: "❌ highlights channel not found.",
-		});
-		return;
-	}
-
-	if (highlightsChannel.type !== ChannelType.GuildText) {
-		await interaction.editReply({
-			content: "❌ the highlights channel is not a text channel.",
 		});
 		return;
 	}
