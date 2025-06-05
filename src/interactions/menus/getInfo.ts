@@ -70,6 +70,7 @@ async function execute(
 }
 
 export default {
+	enabled: config.data.bloxlink?.token && config.data.roblox?.apiKey,
 	data: commandData,
 	execute,
 };

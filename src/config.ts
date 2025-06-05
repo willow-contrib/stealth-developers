@@ -31,8 +31,8 @@ const schema = z.object({
 	discord: discordSchema,
 	mongodb: mongodbSchema,
 	projects: projectSchema,
-	bloxlink: bloxlinkSchema,
-	roblox: robloxSchema,
+	bloxlink: bloxlinkSchema.optional(),
+	roblox: robloxSchema.optional(),
 	trelloBoardId: z.string().optional(),
 });
 

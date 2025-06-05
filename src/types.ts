@@ -17,6 +17,7 @@ export interface IEvent {
 export interface ICommand {
 	data: ApplicationCommandData;
 	execute: (client: Client, interaction: BaseInteraction) => Promise<void>;
+	enabled?: boolean;
 	autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
 	buttonExecute?: (
 		client: Client,

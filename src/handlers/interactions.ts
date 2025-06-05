@@ -18,6 +18,12 @@ async function getCommands(): Promise<ICommand[]> {
 			logger.info(`${fileUrl} does not have a data property, skipping`);
 			return;
 		}
+
+		if (interaction.enabled === false) {
+			logger.info(`${interaction.data.name} was disabled, skipping`);
+			return;
+		}
+
 		commands.set(interaction.data.name, interaction);
 		return interaction;
 	};
