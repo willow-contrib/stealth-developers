@@ -1,3 +1,6 @@
+import config from "@/config.ts";
+import { GuildModel, type GuildType } from "@/database/schemas.ts";
+import { Logger } from "@/utils/logging.ts";
 import {
 	ChannelType,
 	type ChatInputCommandInteraction,
@@ -5,15 +8,12 @@ import {
 	PermissionFlagsBits,
 	SlashCommandBuilder,
 } from "discord.js";
-import { GuildModel, type GuildType } from "../../database/schemas.ts";
-import { Logger } from "../../utils/logging.ts";
 
 const logger = new Logger("config-command");
 
 const commandData = new SlashCommandBuilder()
 	.setName("config")
 	.setDescription("configure bot settings for this server")
-	.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 	.addSubcommand((subcommand) =>
 		subcommand
 			.setName("manager-role")
@@ -46,6 +46,17 @@ const commandData = new SlashCommandBuilder()
 					.setDescription("channel for bug reports")
 					.setRequired(true),
 			),
+	)
+	.addSubcommand((subcommand) =>
+		subcommand
+			.setName("highlight-channel")
+			.setDescription("set the channel where highlights are sent")
+			.addChannelOption((option) =>
+				option
+					.setName("channel")
+					.setDescription("channel for highlights")
+					.setRequired(true),
+			),
 	);
 
 async function execute(
@@ -55,6 +66,18 @@ async function execute(
 	if (!interaction.guild) {
 		await interaction.reply({
 			content: "❌ this command can only be used in a server.",
+			flags: ["Ephemeral"],
+		});
+		return;
+	}
+
+	if (
+		!interaction.memberPermissions ||
+		(!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild) &&
+			interaction.user.id !== config.data.developerId)
+	) {
+		await interaction.reply({
+			content: "❌ you do not have permission to manage this server.",
 			flags: ["Ephemeral"],
 		});
 		return;
@@ -80,6 +103,13 @@ async function execute(
 			await handleManagerRole(interaction, guild);
 		} else if (subcommand === "bug-channel") {
 			await handleBugChannel(interaction, guild);
+		} else if (subcommand === "highlight-channel") {
+			await handleHighlightChannel(interaction, guild);
+		} else {
+			await interaction.reply({
+				content: "❌ unknown subcommand.",
+				flags: ["Ephemeral"],
+			});
 		}
 	} catch (error) {
 		logger.error("failed to execute config command:", error);
@@ -180,6 +210,29 @@ async function handleBugChannel(
 
 	await interaction.reply({
 		content: `✅ set bug reports channel to ${channel}.`,
+		flags: ["Ephemeral"],
+	});
+}
+
+async function handleHighlightChannel(
+	interaction: ChatInputCommandInteraction,
+	guild: GuildType,
+) {
+	const channel = interaction.options.getChannel("channel", true);
+
+	if (channel.type !== ChannelType.GuildText) {
+		await interaction.reply({
+			content: "❌ highlight channel must be a text channel.",
+			flags: ["Ephemeral"],
+		});
+		return;
+	}
+
+	guild.highlights_channel = channel.id;
+	await guild.save();
+
+	await interaction.reply({
+		content: `✅ set highlights channel to ${channel}.`,
 		flags: ["Ephemeral"],
 	});
 }

@@ -34,6 +34,7 @@ const schema = z.object({
 	bloxlink: bloxlinkSchema.optional(),
 	roblox: robloxSchema.optional(),
 	trelloBoardId: z.string().optional(),
+	developerId: z.string(),
 });
 
 function validateConfig() {
