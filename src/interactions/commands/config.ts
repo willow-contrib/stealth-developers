@@ -220,7 +220,8 @@ async function handleHighlightChannel(
 ) {
 	const channel = interaction.options.getChannel("channel", true);
 
-	if (channel.type !== ChannelType.GuildText) {
+	const allowedTypes = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
+	if (!allowedTypes.includes(channel.type)) {
 		await interaction.reply({
 			content: "❌ highlight channel must be a text channel.",
 			flags: ["Ephemeral"],
