@@ -88,6 +88,7 @@ export async function modalExecute(
 	const customIdParts = interaction.customId.split(":");
 	const title = interaction.fields.getTextInputValue("title");
 	const description = interaction.fields.getTextInputValue("description");
+	await interaction.deferReply({ flags: ["Ephemeral"] });
 
 	// handle edit case
 	if (customIdParts[1] === "edit") {
@@ -96,9 +97,8 @@ export async function modalExecute(
 		try {
 			const bug = await BugModel.findOne({ bug_id: bugId });
 			if (!bug) {
-				await interaction.reply({
+				await interaction.editReply({
 					content: "❌ bug not found.",
-					flags: ["Ephemeral"],
 				});
 				return;
 			}
@@ -116,15 +116,13 @@ export async function modalExecute(
 				}
 			}
 
-			await interaction.reply({
+			await interaction.editReply({
 				content: `✅ bug #${bug.bug_id} updated!`,
-				flags: ["Ephemeral"],
 			});
 		} catch (error) {
 			logger.error("failed to update bug:", error);
-			await interaction.reply({
+			await interaction.editReply({
 				content: "❌ failed to update bug. please try again later.",
-				flags: ["Ephemeral"],
 			});
 		}
 		return;
@@ -160,7 +158,7 @@ export async function modalExecute(
 			try {
 				const channel = await client.channels.fetch(guild.bug_channel);
 				if (channel?.type !== ChannelType.GuildText) {
-					await interaction.reply({
+					await interaction.editReply({
 						content: "❌ the bug channel is misconfigured",
 					});
 				}
@@ -257,15 +255,13 @@ export async function modalExecute(
 			}
 		}
 
-		await interaction.reply({
+		await interaction.editReply({
 			content: `✅ bug report submitted! ${msgUrl}`,
-			flags: ["Ephemeral"],
 		});
 	} catch (error) {
 		logger.error("failed to create bug report:", error);
-		await interaction.reply({
+		await interaction.editReply({
 			content: "❌ failed to submit bug report. please try again later.",
-			flags: ["Ephemeral"],
 		});
 	}
 }
