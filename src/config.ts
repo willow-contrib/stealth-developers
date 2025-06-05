@@ -19,10 +19,20 @@ const projectSchema = z.record(
 	}),
 );
 
+const robloxSchema = z.object({
+	apiKey: z.string(),
+});
+
+const bloxlinkSchema = z.object({
+	token: z.string(),
+});
+
 const schema = z.object({
 	discord: discordSchema,
 	mongodb: mongodbSchema,
 	projects: projectSchema,
+	bloxlink: bloxlinkSchema,
+	roblox: robloxSchema,
 	trelloBoardId: z.string().optional(),
 });
 
