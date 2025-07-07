@@ -16,6 +16,16 @@ const projectSchema = z.record(
 		name: z.string(),
 		displayName: z.string(),
 		iconURL: z.string().optional(),
+		codes: z
+			.array(
+				z.object({
+					code: z.string(),
+					expired: z.boolean().optional(),
+					expiredAt: z.string().datetime().optional(),
+					addedAt: z.string().datetime().optional(),
+				}),
+			)
+			.optional(),
 	}),
 );
 
@@ -35,6 +45,7 @@ const schema = z.object({
 	roblox: robloxSchema.optional(),
 	trelloBoardId: z.string().optional(),
 	developerId: z.string(),
+	terminology: z.string().default("project"),
 });
 
 function validateConfig() {

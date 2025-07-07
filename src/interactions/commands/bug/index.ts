@@ -1,3 +1,4 @@
+import config from "@/config.ts";
 import { type ApplicationCommandData, SlashCommandBuilder } from "discord.js";
 import type { ICommand } from "../../../types.ts";
 import { buttonCommand } from "./button.ts";
@@ -12,8 +13,8 @@ const commandData = new SlashCommandBuilder()
 			.setDescription("report a new bug")
 			.addStringOption((option) =>
 				option
-					.setName("project")
-					.setDescription("which project this bug affects")
+					.setName(config.data.terminology)
+					.setDescription(`which ${config.data.terminology} this bug affects`)
 					.setRequired(true)
 					.addChoices(...reportCommand.getProjectChoices()),
 			),

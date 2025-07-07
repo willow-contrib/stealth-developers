@@ -40,7 +40,7 @@ export async function execute(
 	_client: Client,
 	interaction: ChatInputCommandInteraction,
 ) {
-	const project = interaction.options.getString("project", true);
+	const project = interaction.options.getString(config.data.terminology, true);
 
 	const modal = new ModalBuilder()
 		.setCustomId(`bug:${project}`)
@@ -281,7 +281,7 @@ export async function buttonExecute(
 
 		const selectMenu = new StringSelectMenuBuilder()
 			.setCustomId("bug:project-select")
-			.setPlaceholder("select a project")
+			.setPlaceholder(`select a ${config.data.terminology}`)
 			.addOptions(...options);
 
 		const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -289,7 +289,7 @@ export async function buttonExecute(
 		);
 
 		await interaction.reply({
-			content: "select a project to report a bug for:",
+			content: `select a ${config.data.terminology} to report a bug for:`,
 			components: [row],
 			flags: ["Ephemeral"],
 		});

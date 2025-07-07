@@ -1,3 +1,4 @@
+import config from "@/config.ts";
 import {
 	ActionRowBuilder,
 	type ChatInputCommandInteraction,
@@ -21,18 +22,19 @@ export async function execute(
 
 	const selectMenu = new StringSelectMenuBuilder()
 		.setCustomId("bug:project-select")
-		.setPlaceholder("select a project to report a bug")
+		.setPlaceholder(`select a ${config.data.terminology} to report a bug`)
 		.addOptions(...options);
 
 	const selectRow =
 		new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
 	await interaction.reply({
-		content: `📝 <@${tgtUser.id}>, use the dropdown below to select the project
+		content:
+			`📝 <@${tgtUser.id}>, use the dropdown below to select the ${config.data.terminology}
 		  you want to report a bug for. in the future, you can also use the
 			</bug report:${interaction.commandId}> command to report bugs.`
-			.replace(/\s+/g, " ")
-			.trim(),
+				.replace(/\s+/g, " ")
+				.trim(),
 		components: [selectRow],
 	});
 }

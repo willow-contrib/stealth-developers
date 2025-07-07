@@ -14,7 +14,7 @@ export const PROJECT_MAP = config.data.projects;
 
 export function getProjectName(value: string): string {
 	const project = PROJECT_MAP[value as keyof typeof PROJECT_MAP];
-	if (!project) return "unknown project";
+	if (!project) return `unknown ${config.data.terminology}`;
 	return project.name;
 }
 
