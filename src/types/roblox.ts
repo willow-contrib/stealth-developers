@@ -130,3 +130,30 @@ export interface GetUserResponse {
 			| "EVERYONE";
 	};
 }
+
+export interface RobloxSearchUser {
+	previousUsernames: string[];
+	hasVerifiedBadge: boolean;
+	id: number;
+	name: string;
+	displayName: string;
+}
+
+export interface RobloxSearchResponse {
+	previousPageCursor: string | null;
+	nextPageCursor: string | null;
+	data: RobloxSearchUser[];
+}
+
+export type AvatarSize =
+	| 48
+	| 50
+	| 60
+	| 75
+	| 100
+	| 110
+	| 150
+	| 180
+	| 352
+	| 420
+	| 720;

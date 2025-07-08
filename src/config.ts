@@ -31,6 +31,7 @@ const projectSchema = z.record(
 
 const robloxSchema = z.object({
 	apiKey: z.string(),
+	cookie: z.string().optional(),
 });
 
 const bloxlinkSchema = z.object({
