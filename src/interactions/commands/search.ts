@@ -76,12 +76,11 @@ async function execute(
 
 			const container = new ContainerBuilder().setAccentColor([203, 166, 247]);
 			const avatarParent = new MediaGalleryBuilder();
-			if (userResult.thumbnail.done) {
-				const avatar = new MediaGalleryItemBuilder().setURL(
-					userResult.thumbnail.response.imageUri,
-				);
-				avatarParent.addItems(avatar);
-			}
+			const avatar = userResult.thumbnail.done
+				? new MediaGalleryItemBuilder().setURL(
+						userResult.thumbnail.response.imageUri,
+					)
+				: null;
 
 			const title = new TextDisplayBuilder().setContent(
 				`## ${userResult.user.name} (${userResult.user.id})`,
@@ -105,15 +104,22 @@ async function execute(
 				showMore,
 			);
 
-			container.addMediaGalleryComponents(avatarParent);
+			if (avatar)
+				container.addMediaGalleryComponents(avatarParent.addItems(avatar));
 			container.addTextDisplayComponents(title, description);
 			container.addActionRowComponents(actionRow);
 
 			return container;
 		}),
 	);
+
 	const usersData = await userContainers;
 	const nonNull = usersData.filter((userData) => userData !== null);
+
+	const MAX_COMPONENTS = 40;
+	const MAX_USERS = MAX_COMPONENTS / 8;
+	if (nonNull.length > MAX_USERS) nonNull.length = Math.floor(MAX_USERS);
+
 	await interaction.followUp({
 		components: nonNull,
 		flags: ["IsComponentsV2"],
