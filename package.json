@@ -24,6 +24,7 @@
 		"typescript": "^5.0.0"
 	},
 	"dependencies": {
+		"@sillowww/lily": "^0.2.0",
 		"discord.js": "^14.19.3",
 		"mongodb": "^6.16.0",
 		"mongoose": "^8.15.0",

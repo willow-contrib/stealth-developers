@@ -5,6 +5,8 @@ import {
 } from "discord.js";
 
 import config from "@/config";
+import { buildBansContainer } from "@/utils/bans";
+import { hasManagerPermissions } from "@/utils/permissions";
 import {
 	getUserInfoFromDiscord,
 	getUserInfoFromRoblox,
@@ -46,17 +48,23 @@ async function execute(
 	await interaction.deferReply();
 
 	let result: Awaited<ReturnType<typeof getUserInfoFromDiscord>>;
+	if (!interaction.member) {
+		await interaction.editReply({
+			content: "❌ you must be in a server to use this command.",
+		});
+		return;
+	}
 
 	if (subcommand === "discord") {
 		const discordUser = interaction.options.getUser("user", true);
-		result = await getUserInfoFromDiscord(discordUser.id);
+		result = await getUserInfoFromDiscord(discordUser.id, interaction.member);
 	} else if (subcommand === "roblox") {
 		const input = interaction.options.getString("input", true);
 
 		if (/^\d+$/.test(input)) {
-			result = await getUserInfoFromRoblox(input);
+			result = await getUserInfoFromRoblox(input, interaction.member);
 		} else {
-			result = await getUserInfoFromRobloxUsername(input);
+			result = await getUserInfoFromRobloxUsername(input, interaction.member);
 		}
 	} else {
 		await interaction.editReply({
@@ -73,8 +81,11 @@ async function execute(
 	}
 
 	await interaction.editReply({
-		embeds: [result.embed],
-		components: result.components,
+		flags: ["IsComponentsV2"],
+		components: [...result.containers, ...result.actionRows],
+	});
+	await interaction.followUp({
+		content: result.user.id,
 	});
 }
 

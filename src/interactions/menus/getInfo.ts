@@ -16,7 +16,18 @@ async function execute(
 	_client: Client,
 	interaction: UserContextMenuCommandInteraction,
 ) {
-	const result = await getUserInfoFromDiscord(interaction.targetId);
+	if (!interaction.member) {
+		await interaction.reply({
+			content: "❌ you must be in a server to use this command.",
+			flags: ["Ephemeral"],
+		});
+		return;
+	}
+
+	const result = await getUserInfoFromDiscord(
+		interaction.targetId,
+		interaction.member,
+	);
 
 	if ("error" in result) {
 		return interaction.reply({
@@ -26,9 +37,10 @@ async function execute(
 	}
 
 	await interaction.reply({
-		embeds: [result.embed],
-		components: result.components,
+		flags: ["IsComponentsV2"],
+		components: [...result.containers, ...result.actionRows],
 	});
+	await interaction.followUp({ content: result.user.id });
 }
 
 export default {

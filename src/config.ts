@@ -13,6 +13,7 @@ const mongodbSchema = z.object({
 
 const projectSchema = z.record(
 	z.object({
+		universe: z.string(),
 		name: z.string(),
 		displayName: z.string(),
 		iconURL: z.string().optional(),
@@ -29,9 +30,24 @@ const projectSchema = z.record(
 	}),
 );
 
+const forumWatcher = z.object({
+	enabled: z.boolean().default(false),
+	interval: z
+		.number()
+		.int()
+		.min(1)
+		.default(60)
+		.describe("how often to check for new posts in seconds"),
+	groupId: z.string(),
+	groupName: z.string().transform((val) => val.replace(/\s+/g, "-")),
+	channelId: z.string(),
+	notificationChannelId: z.string(),
+});
+
 const robloxSchema = z.object({
 	apiKey: z.string(),
 	cookie: z.string().optional(),
+	forumWatcher: forumWatcher.optional(),
 });
 
 const bloxlinkSchema = z.object({

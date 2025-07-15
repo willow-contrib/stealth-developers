@@ -5,6 +5,7 @@ import registerEvents from "./handlers/events.ts";
 import registerInteractions from "./handlers/interactions.ts";
 
 import cfg from "./config.ts";
+import { watchForum } from "./utils/forumWatcher.ts";
 import { COLOURS, Logger } from "./utils/logging.ts";
 
 const logger = new Logger("bot", {
@@ -23,6 +24,18 @@ client.on(Events.ClientReady, async (client) => {
 	await Promise.all([registerEvents(client), registerInteractions(client)]);
 	logger.info("events and interactions registered!");
 	logger.newLine();
+
+	const forumConfig = cfg.data.roblox?.forumWatcher;
+	if (!forumConfig || !forumConfig.enabled) return;
+	await watchForum(client);
+	setInterval(
+		() => {
+			watchForum(client).catch((error) => {
+				logger.error("error while watching forum:", error);
+			});
+		},
+		forumConfig.interval * 1000 || 60000,
+	);
 });
 
 await client.login(cfg.data.discord.token);
