@@ -73,7 +73,7 @@ async function processImage(
 			logger.debug(`image ${attachment.name}: cat detected = ${hasCat}`);
 		} catch (error) {
 			logger.error(`error processing image ${attachment.name}:`, error);
-			results[id] = { image: attachment, isCat: false };
+			results[id] = { image: attachment, isCat: true };
 		}
 	}
 
@@ -121,9 +121,9 @@ export default {
 		if (nonCatImages.length > 0) {
 			const replyContent = [
 				"this channel is only for cat images!",
-				...(allResults.length > 1
-					? [`i found ${nonCatImages.length} non-cat images:`]
-					: []),
+				allResults.length > 1
+					? `i found ${nonCatImages.length} non-cat images:`
+					: "",
 			].join(" ");
 			await message.reply({
 				content: replyContent,
