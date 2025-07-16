@@ -30,6 +30,18 @@ const projectSchema = z.record(
 	}),
 );
 
+const googleCloudSchema = z.object({
+	credentials: z.object({
+		clientEmail: z.string(),
+		privateKey: z.string(),
+	}),
+	projectId: z.string(),
+});
+
+const catChannelSchema = z.object({
+	channelId: z.string(),
+});
+
 const forumWatcher = z.object({
 	enabled: z.boolean().default(false),
 	interval: z
@@ -63,6 +75,8 @@ const schema = z.object({
 	trelloBoardId: z.string().optional(),
 	developerId: z.string(),
 	terminology: z.string().default("project"),
+	googleCloud: googleCloudSchema.optional(),
+	catChannel: catChannelSchema.optional(),
 });
 
 function validateConfig() {

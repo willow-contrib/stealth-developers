@@ -14,7 +14,11 @@ const logger = new Logger("bot", {
 	scopeColor: COLOURS.FG_CYAN,
 });
 const client = new Client({
-	intents: [GatewayIntentBits.Guilds],
+	intents: [
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.MessageContent,
+	],
 });
 
 client.on(Events.ClientReady, async (client) => {

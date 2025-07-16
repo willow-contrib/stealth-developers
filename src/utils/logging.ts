@@ -1,3 +1,5 @@
+import { Logger as Lily } from "@sillowww/lily";
+
 const COLOURS = {
 	RESET: "\x1b[0m",
 	BRIGHT: "\x1b[1m",
@@ -181,5 +183,7 @@ const singleton = new Logger("global", {
 	scopeColor: COLOURS.FG_MAGENTA,
 });
 
+const logger = new Lily("root");
+
 export default singleton;
-export { Logger, LogLevel, COLOURS };
+export { Logger, LogLevel, COLOURS, logger };
