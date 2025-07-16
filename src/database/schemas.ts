@@ -32,6 +32,7 @@ const UserSchema = new Schema(
 	{
 		user_id: { type: String, required: true },
 		guild_id: { type: String, required: true, ref: "Guild" },
+		cat_points: { type: Number, default: 0 },
 	},
 	{ timestamps: true },
 );

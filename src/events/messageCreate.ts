@@ -1,4 +1,5 @@
 import config from "@/config";
+import { UserModel } from "@/database/schemas";
 import { logger as _logger } from "@/utils/logging";
 import vision from "@google-cloud/vision";
 import {
@@ -100,7 +101,15 @@ export default {
 		)
 			return;
 
-		if (!config.data.googleCloud) return message.react("😻");
+		if (!config.data.googleCloud) {
+			await message.react("😻");
+			await awardCatPoints(
+				message.author.id,
+				message.guildId,
+				message.attachments.size,
+			);
+			return;
+		}
 
 		const results = await processImage(message);
 		if (!results) return;
@@ -121,6 +130,27 @@ export default {
 			});
 		} else if (catImages.length > 0) {
 			await message.react("😻");
+			await awardCatPoints(
+				message.author.id,
+				message.guildId,
+				message.attachments.size,
+			);
 		}
 	},
 };
+
+async function awardCatPoints(
+	userId: string,
+	guildId: string | null,
+	points: number,
+) {
+	if (!guildId) return;
+	const user = await UserModel.findOneAndUpdate(
+		{ user_id: userId, guild_id: guildId },
+		{ $inc: { cat_points: points } },
+		{ upsert: true, new: true },
+	);
+	logger.info(
+		`awarded ${points} cat points to user ${userId}, total: ${user.cat_points}`,
+	);
+}
