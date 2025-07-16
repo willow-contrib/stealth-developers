@@ -96,7 +96,10 @@ async function execute(
 		return;
 	}
 
-	const allUsers = await UserModel.find({ guild_id: interaction.guild.id })
+	const allUsers = await UserModel.find({
+		guild_id: interaction.guildId,
+		cat_points: { $exists: true, $ne: null },
+	})
 		.sort({ cat_points: -1, user_id: 1 })
 		.select("user_id cat_points")
 		.lean();
