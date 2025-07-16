@@ -38,13 +38,13 @@ function makeButtonRow(
 ) {
 	return new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
-			.setCustomId(`catlb:prev:${sessionId}`)
+			.setCustomId(`cat-leaderboard:prev:${sessionId}`)
 			.setLabel("previous")
 			.setStyle(ButtonStyle.Secondary)
 			.setDisabled(currentPage === 1),
 
 		new ButtonBuilder()
-			.setCustomId(`catlb:next:${sessionId}`)
+			.setCustomId(`cat-leaderboard:next:${sessionId}`)
 			.setLabel("next")
 			.setStyle(ButtonStyle.Secondary)
 			.setDisabled(currentPage === pageCount || pageCount === 0),
@@ -119,6 +119,7 @@ async function execute(
 	await interaction.reply({
 		flags: ["IsComponentsV2"],
 		components: [container, actions],
+		allowedMentions: { users: [] },
 	});
 }
 
@@ -149,7 +150,10 @@ async function buttonExecute(_client: Client, interaction: ButtonInteraction) {
 		session.currentPage = newPage;
 		sessionStore.set(sessionId, session);
 
-		const allUsers = await UserModel.find({ guild_id: interaction.guildId })
+		const allUsers = await UserModel.find({
+			guild_id: interaction.guildId,
+			cat_points: { $exists: true, $ne: null },
+		})
 			.sort({ cat_points: -1, user_id: 1 })
 			.select("user_id cat_points")
 			.lean();
@@ -170,6 +174,7 @@ async function buttonExecute(_client: Client, interaction: ButtonInteraction) {
 		await interaction.update({
 			flags: ["IsComponentsV2"],
 			components: [container, actions],
+			allowedMentions: { users: [] },
 		});
 	} else {
 		await interaction.deferUpdate();
