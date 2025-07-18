@@ -141,8 +141,10 @@ export async function watchForum(client: Client) {
 		];
 
 		for (const post of newPosts) {
-			const includesWord = flaggedWords.some((word) =>
-				post.name.toLowerCase().includes(word),
+			const includesWord = flaggedWords.some(
+				(word) =>
+					post.name.toLowerCase().includes(word) ||
+					post.firstComment.content.plainText.toLowerCase().includes(word),
 			);
 			if (!includesWord) continue;
 			const postLink = `https://roblox.com/communities/${forumConfig.groupId}/${forumConfig.groupName}#!/forums/${forumConfig.channelId}/post/${post.id}`;
