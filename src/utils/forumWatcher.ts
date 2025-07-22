@@ -141,12 +141,14 @@ export async function watchForum(client: Client) {
 		];
 
 		for (const post of newPosts) {
-			const includesWord = flaggedWords.some(
+			if (!post.firstComment || !post.firstComment.content) continue;
+			const foundWords = flaggedWords.filter(
 				(word) =>
 					post.name.toLowerCase().includes(word) ||
 					post.firstComment.content.plainText.toLowerCase().includes(word),
 			);
-			if (!includesWord) continue;
+			if (foundWords.length === 0) continue;
+
 			const postLink = `https://roblox.com/communities/${forumConfig.groupId}/${forumConfig.groupName}#!/forums/${forumConfig.channelId}/post/${post.id}`;
 			const postContainer = new ContainerBuilder();
 
@@ -182,6 +184,7 @@ export async function watchForum(client: Client) {
 				const footerParts = [
 					`user id: ${inlineCode(String(post.createdBy))}`,
 					`posted <t:${Math.round(new Date(post.createdAt).getTime() / 1000)}:R>`,
+					`matched words: ${foundWords.map((word) => inlineCode(word)).join(", ")}`,
 				];
 				const postFooter = new TextDisplayBuilder().setContent(
 					`-# ${footerParts.join(" • ")}`,
