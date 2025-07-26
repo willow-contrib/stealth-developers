@@ -1,3 +1,6 @@
+import config from "@/config.ts";
+import type { BugType } from "@/database/schemas.ts";
+import lily from "@/utils/logging.ts";
 import type { Client } from "discord.js";
 import {
 	ActionRowBuilder,
@@ -5,11 +8,8 @@ import {
 	ButtonStyle,
 	EmbedBuilder,
 } from "discord.js";
-import config from "../../../config.ts";
-import type { BugType } from "../../../database/schemas.ts";
-import { Logger } from "../../../utils/logging.ts";
 
-const logger = new Logger("bug-shared");
+export const logger = lily.child("bugShared");
 export const PROJECT_MAP = config.data.projects;
 
 export function getProjectName(value: string): string {

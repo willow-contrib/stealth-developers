@@ -13,7 +13,6 @@ import {
 	escapeMarkdown,
 } from "discord.js";
 
-import config from "@/config";
 import { getRobloxUser, searchRobloxUsers } from "@/utils/roblox";
 import { formatUserInfo } from "@/utils/userInfo";
 

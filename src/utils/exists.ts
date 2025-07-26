@@ -1,7 +1,7 @@
 import { UserModel } from "../database/schemas";
-import { Logger } from "../utils/logging";
+import lily from "../utils/logging";
 
-const logger = new Logger("exists");
+const logger = lily.child("exists");
 
 export async function createUserIfNotExists(userId: string, guildId: string) {
 	let user = await UserModel.findOne({

@@ -1,6 +1,6 @@
 import config from "@/config";
 import { UserModel } from "@/database/schemas";
-import { logger as _logger } from "@/utils/logging";
+import lily from "@/utils/logging";
 import vision from "@google-cloud/vision";
 import {
 	type Attachment,
@@ -15,7 +15,7 @@ type ImageResult = {
 	isCat: boolean;
 };
 
-const logger = _logger.child(["google-cloud", "vision"]);
+const logger = lily.child(["google-cloud", "vision"]);
 
 type ImageResults = Record<string, ImageResult>;
 const client = new vision.ImageAnnotatorClient({

@@ -1,6 +1,6 @@
 import config from "@/config.ts";
+import type { ICommand } from "@/types.ts";
 import { type ApplicationCommandData, SlashCommandBuilder } from "discord.js";
-import type { ICommand } from "../../../types.ts";
 import { buttonCommand } from "./button.ts";
 import { reportCommand } from "./report.ts";
 

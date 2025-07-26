@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import { z } from "zod";
 
+import lily from "@/utils/logging";
+const logger = lily.child("config");
+
 const discordSchema = z.object({
 	token: z.string(),
 	app_id: z.string(),
@@ -88,9 +91,9 @@ function validateConfig() {
 	const conf = schema.safeParse(runtimeConfig);
 	if (conf.success) return conf.data;
 
-	console.error("invalid environment variables");
+	logger.error("invalid environment variables");
 	for (const err of conf.error.errors)
-		console.log(`  ${err.message}: ${err.path}`);
+		logger.error(`  ${err.message}: ${err.path}`);
 	process.exit(1);
 }
 

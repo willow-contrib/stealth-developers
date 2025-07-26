@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import cfg from "../config.ts";
-import { Logger } from "../utils/logging.ts";
+import lily from "../utils/logging.ts";
 
-const logger = new Logger("database");
+const logger = lily.child("database");
 
 export async function connectDatabase() {
 	try {

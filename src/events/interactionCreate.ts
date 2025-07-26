@@ -1,8 +1,8 @@
 import { type BaseInteraction, type Client, Events } from "discord.js";
 import { commands } from "../handlers/interactions";
 
-import { logger as eventLogger } from "../handlers/events";
-const logger = eventLogger.child("interactionCreate");
+import { loggers } from "@/utils/logging";
+const logger = loggers.interactions;
 
 export default {
 	event: Events.InteractionCreate,

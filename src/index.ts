@@ -6,13 +6,8 @@ import registerInteractions from "./handlers/interactions.ts";
 
 import cfg from "./config.ts";
 import { watchForum } from "./utils/forumWatcher.ts";
-import { COLOURS, Logger } from "./utils/logging.ts";
+import logger from "./utils/logging.ts";
 
-const logger = new Logger("bot", {
-	timestamp: true,
-	colorize: true,
-	scopeColor: COLOURS.FG_CYAN,
-});
 const client = new Client({
 	intents: [
 		GatewayIntentBits.GuildMessages,
@@ -27,7 +22,7 @@ client.on(Events.ClientReady, async (client) => {
 	await connectDatabase();
 	await Promise.all([registerEvents(client), registerInteractions(client)]);
 	logger.info("events and interactions registered!");
-	logger.newLine();
+	console.log();
 
 	const forumConfig = cfg.data.roblox?.forumWatcher;
 	if (!forumConfig || !forumConfig.enabled) return;

@@ -1,5 +1,5 @@
 import { GuildModel } from "@/database/schemas";
-import { Logger } from "@/utils/logging";
+import lily from "@/utils/logging";
 import {
 	ApplicationCommandType,
 	type Attachment,
@@ -9,7 +9,7 @@ import {
 	type MessageContextMenuCommandInteraction,
 } from "discord.js";
 
-const logger = new Logger("highlight-menu");
+const logger = lily.child("highlightMenu");
 
 const commandData = new ContextMenuCommandBuilder()
 	.setName("highlight")

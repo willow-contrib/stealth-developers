@@ -1,4 +1,7 @@
 import config from "@/config.ts";
+import { BugModel, GuildModel, getNextBugId } from "@/database/schemas.ts";
+import { createUserIfNotExists } from "@/utils/exists.ts";
+import { hasManagerPermissions } from "@/utils/permissions.ts";
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -18,16 +21,13 @@ import {
 	TextInputStyle,
 } from "discord.js";
 import {
-	BugModel,
-	GuildModel,
-	getNextBugId,
-} from "../../../database/schemas.ts";
-import { createUserIfNotExists } from "../../../utils/exists.ts";
-import { Logger } from "../../../utils/logging.ts";
-import { hasManagerPermissions } from "../../../utils/permissions.ts";
-import { PROJECT_MAP, getProjectName, updateBugEmbed } from "./shared.ts";
+	PROJECT_MAP,
+	getProjectName,
+	logger as lily,
+	updateBugEmbed,
+} from "./shared.ts";
 
-const logger = new Logger("bug-report");
+const logger = lily.child("report");
 
 export function getProjectChoices() {
 	return Object.entries(PROJECT_MAP).map(([key, project]) => ({

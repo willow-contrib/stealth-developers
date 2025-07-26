@@ -1,9 +1,9 @@
 import { type Client, Collection } from "discord.js";
 import type { IEvent } from "../types.ts";
-import { Logger } from "../utils/logging.ts";
+import lily from "../utils/logging.ts";
 import { crawlDirectory, getHandlerPath } from "./common.ts";
 
-const logger = new Logger("events");
+const logger = lily.child("events");
 
 async function getEvents(): Promise<Collection<string, IEvent>> {
 	const eventFiles = new Collection<string, IEvent>();

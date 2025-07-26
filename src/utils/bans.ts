@@ -1,7 +1,9 @@
 import config from "@/config";
 import type { GetUserResponse } from "@/types/roblox";
+import lily from "@/utils/logging";
 import { ContainerBuilder, TextDisplayBuilder } from "discord.js";
 
+const logger = lily.child("bans");
 const projects = Object.values(config.data.projects);
 const BASE_URL = "https://apis.roblox.com/user/cloud/v2/universes";
 
@@ -38,7 +40,7 @@ export async function getBans(
 		});
 
 		if (!bans.ok) {
-			console.error(
+			logger.error(
 				`failed to fetch bans for user ${userId} in project ${project.name}:`,
 				bans.statusText,
 			);

@@ -1,6 +1,6 @@
 import config from "@/config";
 import type { Post } from "@/types/forums";
-import { Logger } from "@sillowww/lily";
+import lily from "@/utils/logging";
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -19,7 +19,7 @@ import { getRobloxUser } from "./roblox";
 const startTime = Date.now();
 const seenPosts = new Set<string>();
 const forumConfig = config.data.roblox?.forumWatcher;
-const logger = new Logger("ForumWatcher");
+const logger = lily.child("forumWatcher");
 
 export function isNewPost(post: Post): boolean {
 	const postId = post.id.toString();

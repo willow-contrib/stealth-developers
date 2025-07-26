@@ -1,12 +1,12 @@
 import type { ApplicationCommandData, Client, Snowflake } from "discord.js";
 import { Collection, REST, Routes } from "discord.js";
 
-import cfg from "../config.ts";
-import type { ICommand } from "../types.ts";
-import { Logger } from "../utils/logging.ts";
+import cfg from "@/config.ts";
+import type { ICommand } from "@/types.ts";
+import lily from "@/utils/logging.ts";
 import { crawlDirectory, getHandlerPath } from "./common.ts";
 
-const logger = new Logger("interactions");
+const logger = lily.child("interactions");
 export const commands = new Collection<string, ICommand>();
 
 async function getCommands(): Promise<ICommand[]> {

@@ -1,6 +1,6 @@
 import config from "@/config.ts";
 import { GuildModel, type GuildType } from "@/database/schemas.ts";
-import { Logger } from "@/utils/logging.ts";
+import lily from "@/utils/logging.ts";
 import {
 	ChannelType,
 	type ChatInputCommandInteraction,
@@ -9,7 +9,7 @@ import {
 	SlashCommandBuilder,
 } from "discord.js";
 
-const logger = new Logger("config-command");
+const logger = lily.child("configCommand");
 
 const commandData = new SlashCommandBuilder()
 	.setName("config")
