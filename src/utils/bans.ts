@@ -65,7 +65,7 @@ export async function buildBansContainer(
 	const bansContainer = new ContainerBuilder();
 	{
 		const bansTitle = new TextDisplayBuilder().setContent(
-			`## Bans for ${user.displayName || user.name}`,
+			`**Bans for ${user.displayName || user.name}**`,
 		);
 
 		const bans = await getBans(user.id);
@@ -79,9 +79,12 @@ export async function buildBansContainer(
 
 			const restriction: Restriction = ban.gameJoinRestriction;
 			return new TextDisplayBuilder().setContent(
-				`**${ban.project}**\n> **Active since** <t:${Math.round(
-					new Date(restriction.startTime).getTime() / 1000,
-				)}:R>\n> **Display reason:** ${restriction.displayReason}\n> **Reason:** ${restriction.privateReason}\n`,
+				[
+					`**${ban.project}**`,
+					`> **Active since** <t:${Math.round(new Date(restriction.startTime).getTime() / 1000)}:R>`,
+					`> **Display reason:** ${restriction.displayReason}`,
+					`> **Reason:** ${restriction.privateReason}`,
+				].join("\n"),
 			);
 		};
 

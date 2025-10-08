@@ -32,12 +32,15 @@ export function isNewPost(post: Post): boolean {
 	return isNew;
 }
 
-async function fetchPosts(): Promise<Post[]> {
+async function fetchPosts(channel: {
+	channelId: string;
+	channelName: string;
+}): Promise<Post[]> {
 	if (!forumConfig)
 		throw new Error("the forum watcher is not enabled in the configuration.");
 
 	const response = await fetch(
-		`https://groups.roblox.com/v1/groups/${forumConfig.groupId}/forums/${forumConfig.channelId}/posts`,
+		`https://groups.roblox.com/v1/groups/${forumConfig.groupId}/forums/${channel.channelId}/posts`,
 		{
 			headers: {
 				Cookie: config.data.roblox?.cookie || "",
@@ -114,6 +117,7 @@ export async function watchForum(client: Client) {
 	if (!forumConfig || !forumConfig.enabled) return;
 	const channelId = forumConfig.notificationChannelId;
 	const channel = client.channels.cache.get(channelId) as GuildTextBasedChannel;
+	const forumChannels = forumConfig.channels;
 
 	if (!channel || !channel.isTextBased()) {
 		logger.error(
@@ -122,96 +126,116 @@ export async function watchForum(client: Client) {
 		return;
 	}
 
-	try {
-		const posts = await fetchPosts();
-		const newPosts = posts.filter(isNewPost);
+	for (const forumChannel of forumChannels) {
+		try {
+			const posts = await fetchPosts(forumChannel);
+			const newPosts = posts.filter(isNewPost);
 
-		const flaggedWords = [
-			"ban",
-			"appeal",
-			"hacker",
-			"exploit",
-			"cheater",
-			"unban",
-			"moderator",
-			"admin",
-			"mod",
-			"exploiters",
-			"exploits",
-		];
+			const flaggedWords = [
+				"ban",
+				"appeal",
+				"hacker",
+				"exploit",
+				"cheater",
+				"unban",
+				"moderator",
+				"admin",
+				"mod",
+				"exploiters",
+				"exploits",
+			];
 
-		for (const post of newPosts) {
-			if (!post.firstComment || !post.firstComment.content) continue;
-			const foundWords = flaggedWords.filter(
-				(word) =>
-					post.name.toLowerCase().includes(word) ||
-					post.firstComment.content.plainText.toLowerCase().includes(word),
-			);
-			if (foundWords.length === 0) continue;
+			for (const post of newPosts) {
+				if (!post.firstComment || !post.firstComment.content) continue;
+				const foundWords = flaggedWords.filter(
+					(word) =>
+						post.name.toLowerCase().includes(word) ||
+						post.firstComment.content.plainText.toLowerCase().includes(word),
+				);
+				const flagged = foundWords.length !== 0;
 
-			const postLink = `https://roblox.com/communities/${forumConfig.groupId}/${forumConfig.groupName}#!/forums/${forumConfig.channelId}/post/${post.id}`;
-			const postContainer = new ContainerBuilder();
+				const postLink = `https://roblox.com/communities/${forumConfig.groupId}/${forumConfig.groupName}#!/forums/${forumChannel.channelId}/post/${post.id}`;
+				const postContainer = new ContainerBuilder();
 
-			const { user, thumbnail } = await getRobloxUser(
-				String(post.createdBy),
-				48,
-			);
+				const { user, thumbnail } = await getRobloxUser(
+					String(post.createdBy),
+					48,
+				);
 
-			let emoji: { id: string; name: string } | null = null;
+				let emoji: { id: string; name: string } | null = null;
 
-			{
-				if (thumbnail.done) {
-					emoji = await uploadThumbnailAsEmoji(
-						client,
-						thumbnail.response.imageUri,
-						user.displayName || user.name,
+				{
+					if (thumbnail.done) {
+						emoji = await uploadThumbnailAsEmoji(
+							client,
+							thumbnail.response.imageUri,
+							user.displayName || user.name,
+						);
+					}
+
+					const postTitle = new TextDisplayBuilder().setContent(
+						`## ${post.name}`,
+					);
+					const postDescription = new TextDisplayBuilder().setContent(
+						post.firstComment.content.plainText || "no description provided",
+					);
+					const postAuthor = new TextDisplayBuilder().setContent(
+						[
+							emoji ? `<:${emoji.name}:${emoji.id}>` : "",
+							`**${inlineLink(user.displayName || user.name, `https://www.roblox.com/users/${user.id}/profile`)}**`,
+						].join(" "),
+					);
+
+					const footerParts = [
+						`user id: ${inlineCode(String(post.createdBy))}`,
+						`posted <t:${Math.round(new Date(post.createdAt).getTime() / 1000)}:R>`,
+						flagged
+							? `matched words: ${foundWords.map((word) => inlineCode(word)).join(", ")}`
+							: undefined,
+					].filter(Boolean);
+					const postFooter = new TextDisplayBuilder().setContent(
+						`-# ${footerParts.join(" • ")}`,
+					);
+
+					postContainer.addTextDisplayComponents(
+						postAuthor,
+						postTitle,
+						postDescription,
+						postFooter,
 					);
 				}
 
-				const postTitle = new TextDisplayBuilder().setContent(
-					`## ${post.name}`,
-				);
-				const postDescription = new TextDisplayBuilder().setContent(
-					post.firstComment.content.plainText || "no description provided",
-				);
-				const postAuthor = new TextDisplayBuilder().setContent(
-					[
-						emoji ? `<:${emoji.name}:${emoji.id}>` : "",
-						`**${inlineLink(user.displayName || user.name, `https://www.roblox.com/users/${user.id}/profile`)}**`,
-					].join(" "),
+				const bansContainer = await buildBansContainer(user);
+				const buttonRow = new ActionRowBuilder<ButtonBuilder>();
+
+				if (flagged)
+					buttonRow.addComponents(
+						new ButtonBuilder()
+							.setLabel("🚩")
+							.setCustomId("flagged_post")
+							.setStyle(ButtonStyle.Danger)
+							.setDisabled(true),
+					);
+
+				buttonRow.addComponents(
+					new ButtonBuilder()
+						.setLabel(forumChannel.channelName)
+						.setCustomId("forum_channel")
+						.setStyle(ButtonStyle.Primary)
+						.setDisabled(true),
+					new ButtonBuilder()
+						.setLabel("view post")
+						.setStyle(ButtonStyle.Link)
+						.setURL(postLink),
 				);
 
-				const footerParts = [
-					`user id: ${inlineCode(String(post.createdBy))}`,
-					`posted <t:${Math.round(new Date(post.createdAt).getTime() / 1000)}:R>`,
-					`matched words: ${foundWords.map((word) => inlineCode(word)).join(", ")}`,
-				];
-				const postFooter = new TextDisplayBuilder().setContent(
-					`-# ${footerParts.join(" • ")}`,
-				);
-
-				postContainer.addTextDisplayComponents(
-					postAuthor,
-					postTitle,
-					postDescription,
-					postFooter,
-				);
+				await channel.send({
+					flags: ["IsComponentsV2"],
+					components: [postContainer, bansContainer, buttonRow],
+				});
 			}
-
-			const bansContainer = await buildBansContainer(user);
-			const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-				new ButtonBuilder()
-					.setLabel("view post")
-					.setStyle(ButtonStyle.Link)
-					.setURL(postLink),
-			);
-
-			await channel.send({
-				flags: ["IsComponentsV2"],
-				components: [postContainer, bansContainer, buttonRow],
-			});
+		} catch (error) {
+			logger.error(`error while fetching forum posts: ${error}`);
 		}
-	} catch (error) {
-		logger.error(`error while fetching forum posts: ${error}`);
 	}
 }

@@ -45,6 +45,10 @@ const catChannelSchema = z.object({
 	channelId: z.string(),
 });
 
+const forumChannel = z.object({
+	channelId: z.string(),
+	channelName: z.string(),
+});
 const forumWatcher = z.object({
 	enabled: z.boolean().default(false),
 	interval: z
@@ -55,7 +59,9 @@ const forumWatcher = z.object({
 		.describe("how often to check for new posts in seconds"),
 	groupId: z.string(),
 	groupName: z.string().transform((val) => val.replace(/\s+/g, "-")),
+	/** @deprecated */
 	channelId: z.string(),
+	channels: z.array(forumChannel).min(1),
 	notificationChannelId: z.string(),
 });
 

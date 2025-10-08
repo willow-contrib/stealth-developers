@@ -4,7 +4,7 @@ import { connectDatabase } from "./database/connection";
 import registerEvents from "./handlers/events.ts";
 import registerInteractions from "./handlers/interactions.ts";
 
-import cfg from "./config.ts";
+import config from "./config.ts";
 import { watchForum } from "./utils/forumWatcher.ts";
 import logger from "./utils/logging.ts";
 
@@ -24,7 +24,8 @@ client.on(Events.ClientReady, async (client) => {
 	logger.info("events and interactions registered!");
 	console.log();
 
-	const forumConfig = cfg.data.roblox?.forumWatcher;
+	const forumConfig = config.data.roblox?.forumWatcher;
+	const forumChannels = forumConfig?.channels ?? [];
 	if (!forumConfig || !forumConfig.enabled) return;
 	await watchForum(client);
 	setInterval(
@@ -37,7 +38,7 @@ client.on(Events.ClientReady, async (client) => {
 	);
 });
 
-await client.login(cfg.data.discord.token);
+await client.login(config.data.discord.token);
 
 process.on("unhandledRejection", (error) => {
 	logger.error("unhandled promise rejection:", error);
