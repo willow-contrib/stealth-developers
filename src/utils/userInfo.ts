@@ -1,4 +1,4 @@
-import type { GetUserResponse } from "@/types/roblox";
+import type { GetUserOkResponse, GetUserResponse } from "@/types/roblox";
 import {
 	getConnectedRobloxUser,
 	getRobloxIdFromUsername,
@@ -70,6 +70,8 @@ export async function getUserInfoFromRoblox(
 ): Promise<UserInfoResult | { error: string }> {
 	try {
 		const { user, thumbnail } = await getRobloxUser(robloxId, avatarSize);
+		if ("code" in user)
+			return { error: user.message || "failed to fetch user data" };
 
 		return formatUserInfo(
 			user,
@@ -85,7 +87,7 @@ export async function getUserInfoFromRoblox(
 }
 
 export async function formatUserInfo(
-	user: GetUserResponse,
+	user: GetUserOkResponse,
 	thumbnailUrl: string | null,
 	member: GuildMember | APIGuildMember,
 ): Promise<UserInfoResult> {
@@ -129,7 +131,7 @@ export async function formatUserInfo(
 
 	const embed = new EmbedBuilder()
 		.setAuthor({
-			name: user.displayName,
+			name: user.displayName || user.name,
 			url: `https://www.roblox.com/users/${user.id}/profile`,
 		})
 		.setDescription(user.about || null)

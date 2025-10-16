@@ -6,6 +6,7 @@ import {
 	type ChatInputCommandInteraction,
 	type Client,
 	ContainerBuilder,
+	type GuildMember,
 	MediaGalleryBuilder,
 	MediaGalleryItemBuilder,
 	SlashCommandBuilder,
@@ -71,7 +72,7 @@ async function execute(
 		usersResult.map(async (user) => {
 			const userId = user.id;
 			const userResult = await getRobloxUser(String(userId), 75);
-			if (!userResult) return null;
+			if (!userResult || "code" in userResult.user) return null;
 
 			const container = new ContainerBuilder().setAccentColor([203, 166, 247]);
 			const avatarParent = new MediaGalleryBuilder();
@@ -126,15 +127,22 @@ async function execute(
 }
 
 async function buttonExecute(_client: Client, interaction: ButtonInteraction) {
-	if (!interaction.isButton()) return;
+	if (!interaction.isButton() || !interaction.member) return;
 
 	const [action, userId] = interaction.customId.split(":");
 	if (action !== "search") return;
 
 	const { user, thumbnail } = await getRobloxUser(userId, 420);
-	const { embed } = formatUserInfo(
+	if (!user || "code" in user)
+		return interaction.reply({
+			content: `❌ failed to fetch user with id ${userId}: ${user?.message || "unknown error"}`,
+			flags: ["Ephemeral"],
+		});
+
+	const { embed } = await formatUserInfo(
 		user,
 		thumbnail.done ? thumbnail.response.imageUri : null,
+		interaction.member as GuildMember,
 	);
 
 	await interaction.reply({ embeds: [embed], flags: ["Ephemeral"] });

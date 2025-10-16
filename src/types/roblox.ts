@@ -104,13 +104,13 @@ export type UserSearchError =
 	| UserSearchBadResponse
 	| UserSearchRateLimitResponse;
 
-export interface GetUserResponse {
+export interface GetUserOkResponse {
 	path: string;
 	/** RFC 3339 formatted date string */
 	createTime: string;
 	id: string;
 	name: string;
-	displayName: string;
+	displayName: string | null;
 	about?: string;
 	locale: string;
 	premium: boolean;
@@ -130,6 +130,8 @@ export interface GetUserResponse {
 			| "EVERYONE";
 	};
 }
+
+export type GetUserResponse = GetUserOkResponse | V2ErrorResponse;
 
 export interface RobloxSearchUser {
 	previousUsernames: string[];

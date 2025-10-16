@@ -161,6 +161,12 @@ export async function watchForum(client: Client) {
 					String(post.createdBy),
 					48,
 				);
+				if ("code" in user) {
+					logger.error(
+						`failed to fetch user ${post.createdBy} for post ${post.id}: ${user.message}`,
+					);
+					continue;
+				}
 
 				let emoji: { id: string; name: string } | null = null;
 

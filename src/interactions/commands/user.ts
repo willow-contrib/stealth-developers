@@ -80,6 +80,13 @@ async function execute(
 		return;
 	}
 
+	if ("code" in result.user) {
+		await interaction.editReply({
+			content: `❌ failed to fetch user: ${result.user.message}`,
+		});
+		return;
+	}
+
 	await interaction.editReply({
 		flags: ["IsComponentsV2"],
 		components: [...result.containers, ...result.actionRows],

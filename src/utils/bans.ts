@@ -1,5 +1,5 @@
 import config from "@/config";
-import type { GetUserResponse } from "@/types/roblox";
+import type { GetUserOkResponse, GetUserResponse } from "@/types/roblox";
 import lily from "@/utils/logging";
 import { ContainerBuilder, TextDisplayBuilder } from "discord.js";
 
@@ -60,7 +60,7 @@ export async function getBans(
 }
 
 export async function buildBansContainer(
-	user: GetUserResponse,
+	user: GetUserOkResponse,
 ): Promise<ContainerBuilder> {
 	const bansContainer = new ContainerBuilder();
 	{

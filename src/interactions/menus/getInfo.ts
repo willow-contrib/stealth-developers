@@ -35,6 +35,12 @@ async function execute(
 			flags: ["Ephemeral"],
 		});
 	}
+	if ("code" in result.user) {
+		return interaction.reply({
+			content: `❌ error fetching user info: ${result.user.message}`,
+			flags: ["Ephemeral"],
+		});
+	}
 
 	await interaction.reply({
 		flags: ["IsComponentsV2"],
