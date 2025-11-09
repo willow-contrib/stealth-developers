@@ -1,461 +1,454 @@
 import config from "@/config.ts";
-import { BugModel, GuildModel, getNextBugId } from "@/database/schemas.ts";
-import { createUserIfNotExists } from "@/utils/exists.ts";
-import { hasManagerPermissions } from "@/utils/permissions.ts";
 import {
-	ActionRowBuilder,
-	ButtonBuilder,
-	type ButtonInteraction,
-	ButtonStyle,
-	ChannelType,
+	BugModel,
+	GuildModel,
+	MediaModel,
+	type MediaType,
+	getNextBugId,
+} from "@/database/schemas.ts";
+import { createUserIfNotExists } from "@/utils/exists.ts";
+import {
+	type Attachment,
+	AttachmentBuilder,
 	type ChatInputCommandInteraction,
 	type Client,
-	EmbedBuilder,
-	type GuildMember,
+	ContainerBuilder,
+	FileUploadBuilder,
+	LabelBuilder,
+	MediaGalleryBuilder,
+	MediaGalleryItemBuilder,
 	ModalBuilder,
 	type ModalSubmitInteraction,
+	type ReadonlyCollection,
+	SectionBuilder,
+	type Snowflake,
 	StringSelectMenuBuilder,
-	type StringSelectMenuInteraction,
-	StringSelectMenuOptionBuilder,
+	TextDisplayBuilder,
 	TextInputBuilder,
 	TextInputStyle,
+	ThumbnailBuilder,
 } from "discord.js";
-import {
-	PROJECT_MAP,
-	getProjectName,
-	logger as lily,
-	updateBugEmbed,
-} from "./shared.ts";
+import { PROJECT_MAP, logger as lily } from "./shared.ts";
 
 const logger = lily.child("report");
 
-export function getProjectChoices() {
-	return Object.entries(PROJECT_MAP).map(([key, project]) => ({
-		name: project.displayName,
-		value: key,
-	}));
+// constants
+const INPUT_IDS = {
+	AFFECTED: "affectedInput",
+	TITLE: "titleInput",
+	DESCRIPTION: "descriptionInput",
+	MEDIA: "fileUploadInput",
+} as const;
+
+const MODAL_IDS = {
+	REPORT: "bug:report",
+	EDIT: "bug:edit",
+} as const;
+
+const VALIDATION = {
+	TITLE_MAX_LENGTH: 100,
+	DESCRIPTION_MAX_LENGTH: 1000,
+	THREAD_NAME_MAX_LENGTH: 50,
+	AUTO_ARCHIVE_DURATION: 1440,
+} as const;
+
+// types
+type ProjectChoice<T extends "name" | "label" = "name"> = T extends "name"
+	? { name: string; value: string }
+	: { label: string; value: string };
+
+interface DownloadedMediaResult {
+	media: MediaType[];
+	totalSize: number;
 }
 
+// utils
+function buildTrelloUrl(title: string, url: string): string {
+	const params = new URLSearchParams({
+		name: title,
+		url: url,
+		idBoard: config.data?.trelloBoardId || "",
+	});
+	return `https://trello.com/addCard?${params.toString()}`;
+}
+
+function formatFileSize(bytes: number): string {
+	return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function truncateTitle(title: string, maxLength: number): string {
+	return title.length > maxLength
+		? `${title.substring(0, maxLength)}...`
+		: title;
+}
+
+// media handling
+async function downloadAttachment(
+	attachment: Attachment,
+	bugId: number,
+	userId: Snowflake,
+): Promise<MediaType> {
+	if (!attachment.contentType) {
+		throw new Error(`Attachment ${attachment.id} has no content type`);
+	}
+
+	try {
+		const response = await fetch(attachment.url);
+		if (!response.ok) {
+			throw new Error(`Failed to download attachment: ${response.statusText}`);
+		}
+
+		const buffer = await response.arrayBuffer();
+		const [mainType, subType] = attachment.contentType.split("/");
+		const type = mainType === "image" ? "image" : "video";
+		const extension = subType.split(";")[0];
+
+		const media = new MediaModel({
+			bug_id: bugId,
+			user_id: userId,
+			media_type: type,
+			data: Buffer.from(buffer),
+			extension,
+		});
+
+		await media.save();
+		return media;
+	} catch (error) {
+		logger.error("Failed to download attachment", {
+			error,
+			attachmentId: attachment.id,
+			bugId,
+		});
+		throw error;
+	}
+}
+
+async function downloadAttachments(
+	attachments: ReadonlyCollection<string, Attachment>,
+	bugId: number,
+	userId: Snowflake,
+): Promise<DownloadedMediaResult> {
+	const totalSize = Array.from(attachments.values()).reduce(
+		(acc, att) => acc + att.size,
+		0,
+	);
+
+	const mediaPromises = attachments.map((attachment) =>
+		downloadAttachment(attachment, bugId, userId),
+	);
+
+	const media = await Promise.all(mediaPromises);
+
+	return { media, totalSize };
+}
+
+// project choices
+export function getProjectChoices<T extends "name" | "label" = "name">(
+	label: T = "name" as T,
+): ProjectChoice<T>[] {
+	return Object.entries(PROJECT_MAP).map(([key, project]) =>
+		label === "name"
+			? { name: project.displayName, value: key }
+			: { label: project.displayName, value: key },
+	) as ProjectChoice<T>[];
+}
+
+// Modal builders
+function buildReportModal(): ModalBuilder {
+	const terminology = config.data.terminology;
+	const capitalizedTerminology =
+		terminology.charAt(0).toUpperCase() + terminology.slice(1);
+
+	const gameLabel = new LabelBuilder()
+		.setLabel(capitalizedTerminology)
+		.setDescription(`The ${terminology} affected by this bug`)
+		.setStringSelectMenuComponent(
+			new StringSelectMenuBuilder()
+				.setMaxValues(1)
+				.setMinValues(1)
+				.setCustomId(INPUT_IDS.AFFECTED)
+				.setPlaceholder(`Select the ${terminology} you encountered the bug in`)
+				.addOptions(getProjectChoices("label")),
+		);
+
+	const titleLabel = new LabelBuilder()
+		.setLabel("Bug Title")
+		.setDescription("Provide a short description of the bug")
+		.setTextInputComponent(
+			new TextInputBuilder()
+				.setCustomId(INPUT_IDS.TITLE)
+				.setStyle(TextInputStyle.Short)
+				.setRequired(true)
+				.setMaxLength(VALIDATION.TITLE_MAX_LENGTH),
+		);
+
+	const descriptionLabel = new LabelBuilder()
+		.setLabel("Bug Description")
+		.setDescription(
+			"Provide a detailed description of the bug and steps to reproduce",
+		)
+		.setTextInputComponent(
+			new TextInputBuilder()
+				.setCustomId(INPUT_IDS.DESCRIPTION)
+				.setStyle(TextInputStyle.Paragraph)
+				.setRequired(true)
+				.setMaxLength(VALIDATION.DESCRIPTION_MAX_LENGTH),
+		);
+
+	const mediaLabel = new LabelBuilder()
+		.setLabel("Media")
+		.setDescription(
+			"Provide any screenshots or videos that demonstrate the bug",
+		)
+		.setFileUploadComponent(
+			new FileUploadBuilder().setCustomId(INPUT_IDS.MEDIA).setRequired(false),
+		);
+
+	return new ModalBuilder()
+		.setCustomId(MODAL_IDS.REPORT)
+		.setTitle("Report a Bug")
+		.setLabelComponents(gameLabel, titleLabel, descriptionLabel, mediaLabel);
+}
+
+// Validation
+async function validateGuildSetup(interaction: ModalSubmitInteraction) {
+	if (!interaction.guild) {
+		throw new Error("This command can only be used in a server.");
+	}
+
+	const guildData = await GuildModel.findOne({
+		guild_id: interaction.guild.id,
+	});
+
+	if (!guildData)
+		throw new Error("Guild data not found. Please configure the bot first.");
+	if (!guildData.bug_channel)
+		throw new Error("The bug channel is not configured.");
+
+	const channel = interaction.guild.channels.cache.get(guildData.bug_channel);
+	if (!channel?.isTextBased() || !("send" in channel))
+		throw new Error("The bug channel configured is not a valid text channel.");
+
+	return { guildData, channel };
+}
+
+function parseModalCustomId(customId: string): { type: string } {
+	const parts = customId.split(":");
+	if (parts.length !== 2 || parts[0] !== "bug") {
+		throw new Error("Invalid modal submission format.");
+	}
+	return { type: parts[1] };
+}
+
+// containers
+function buildBugContainer(
+	bug: InstanceType<typeof BugModel>,
+	projectKey: string,
+	userId: Snowflake,
+	mediaUrls: string[],
+): ContainerBuilder {
+	const projectInfo = PROJECT_MAP[projectKey];
+	if (!projectInfo) {
+		throw new Error(`Project ${projectKey} not found in PROJECT_MAP`);
+	}
+
+	const textContent = `### ${bug.title}\n${bug.description}`;
+	const footerContent = [
+		`-# #${bug.bug_id}`,
+		projectInfo.displayName,
+		`Reported by <@${userId}>`,
+	].join(" • ");
+
+	const container = new ContainerBuilder().addSectionComponents(
+		new SectionBuilder()
+			.setThumbnailAccessory(
+				new ThumbnailBuilder().setURL(projectInfo.iconURL || ""),
+			)
+			.addTextDisplayComponents(
+				new TextDisplayBuilder().setContent(textContent),
+			),
+	);
+
+	if (mediaUrls.length > 0) {
+		container.addMediaGalleryComponents(
+			new MediaGalleryBuilder().addItems(
+				...mediaUrls.map((url) => new MediaGalleryItemBuilder().setURL(url)),
+			),
+		);
+	}
+
+	container.addTextDisplayComponents(
+		new TextDisplayBuilder().setContent(footerContent),
+	);
+
+	return container;
+}
+
+// main
 export async function execute(
 	_client: Client,
 	interaction: ChatInputCommandInteraction,
-) {
-	const project = interaction.options.getString(config.data.terminology, true);
-
-	const modal = new ModalBuilder()
-		.setCustomId(`bug:${project}`)
-		.setTitle(`report bug - ${getProjectName(project)}`);
-
-	const titleInput = new TextInputBuilder()
-		.setCustomId("title")
-		.setLabel("bug title")
-		.setStyle(TextInputStyle.Short)
-		.setPlaceholder("short description of the bug")
-		.setRequired(true)
-		.setMaxLength(100);
-
-	const descriptionInput = new TextInputBuilder()
-		.setCustomId("description")
-		.setLabel("bug description")
-		.setStyle(TextInputStyle.Paragraph)
-		.setPlaceholder("detailed description of the bug and steps to reproduce")
-		.setRequired(true)
-		.setMaxLength(1000);
-
-	const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-		titleInput,
-	);
-	const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-		descriptionInput,
-	);
-
-	modal.addComponents(firstRow, secondRow);
+): Promise<void> {
+	const modal = buildReportModal();
 	await interaction.showModal(modal);
 }
 
+// modal submission handling
 export async function modalExecute(
 	client: Client,
 	interaction: ModalSubmitInteraction,
-) {
-	if (!interaction.guild) {
-		await interaction.reply({
-			content: "❌ this command can only be used in a server.",
-			flags: ["Ephemeral"],
-		});
-		return;
-	}
-
-	const customIdParts = interaction.customId.split(":");
-	const title = interaction.fields.getTextInputValue("title");
-	const description = interaction.fields.getTextInputValue("description");
-	await interaction.deferReply({ flags: ["Ephemeral"] });
-
-	// handle edit case
-	if (customIdParts[1] === "edit") {
-		const bugId = Number.parseInt(customIdParts[2]);
-
-		try {
-			const bug = await BugModel.findOne({ bug_id: bugId });
-			if (!bug) {
-				await interaction.editReply({
-					content: "❌ bug not found.",
-				});
-				return;
-			}
-
-			bug.title = title;
-			bug.description = description;
-			await bug.save();
-
-			if (bug.message_id && interaction.guild) {
-				const guild = await GuildModel.findOne({
-					guild_id: interaction.guild.id,
-				});
-				if (guild?.bug_channel) {
-					await updateBugEmbed(client, bug, bug.message_id, guild.bug_channel);
-				}
-			}
-
-			await interaction.editReply({
-				content: `✅ bug #${bug.bug_id} updated!`,
-			});
-		} catch (error) {
-			logger.error("failed to update bug:", error);
-			await interaction.editReply({
-				content: "❌ failed to update bug. please try again later.",
-			});
-		}
-		return;
-	}
-
-	const project = customIdParts[1];
-
+): Promise<void> {
 	try {
+		if (!interaction.guild) {
+			await interaction.reply({
+				content: "❌ This command can only be used in a server.",
+				flags: ["Ephemeral"],
+			});
+			return;
+		}
+
+		const { type } = parseModalCustomId(interaction.customId);
+
+		if (type === "edit") {
+			await interaction.reply({
+				content: "❌ Editing bugs is not implemented yet.",
+				flags: ["Ephemeral"],
+			});
+			return;
+		}
+
+		const { channel } = await validateGuildSetup(interaction);
 		await createUserIfNotExists(interaction.user.id, interaction.guild.id);
 
-		const bugId = await getNextBugId();
+		// collect inputs & defer
+		const title = interaction.fields.getTextInputValue(INPUT_IDS.TITLE);
+		const description = interaction.fields.getTextInputValue(
+			INPUT_IDS.DESCRIPTION,
+		);
+		const affected = interaction.fields
+			.getStringSelectValues(INPUT_IDS.AFFECTED)
+			.join("");
+		const mediaFiles = interaction.fields.getUploadedFiles(INPUT_IDS.MEDIA);
 
+		await interaction.deferReply({ flags: ["Ephemeral"] });
+
+		// create record
+		const bugId = await getNextBugId();
 		const bug = new BugModel({
 			bug_id: bugId,
+			guild_id: interaction.guild.id,
 			user_id: interaction.user.id,
-			project,
 			title,
 			description,
+			projects: affected,
 			status: "open",
 			sent: false,
 		});
-
 		await bug.save();
-		logger.info(`bug report created: ${bug._id}`);
 
-		// send to bug channel if configured
-		const guild = await GuildModel.findOne({
-			guild_id: interaction.guild.id,
+		logger.info("Bug report created", {
+			bugId,
+			userId: interaction.user.id,
+			guildId: interaction.guild.id,
 		});
-		let msgUrl = "";
 
-		if (guild?.bug_channel) {
-			try {
-				const channel = await client.channels.fetch(guild.bug_channel);
-				if (channel?.type !== ChannelType.GuildText) {
-					await interaction.editReply({
-						content: "❌ the bug channel is misconfigured",
-					});
-				}
+		// handle media uploads
+		let downloadedMedia: MediaType[] = [];
+		if (mediaFiles && mediaFiles.size > 0) {
+			const { media, totalSize } = await downloadAttachments(
+				mediaFiles,
+				bugId,
+				interaction.user.id,
+			);
 
-				if (channel?.isTextBased() && "send" in channel) {
-					const projectInfo = PROJECT_MAP[project as keyof typeof PROJECT_MAP];
+			logger.info("Downloading attachments", {
+				bugId,
+				userId: interaction.user.id,
+				fileCount: mediaFiles.size,
+				totalSize,
+			});
 
-					const embed = new EmbedBuilder()
-						.setAuthor({
-							name: interaction.user.displayName,
-							url: `https://discord.com/users/${interaction.user.id}`,
-							iconURL: interaction.user?.avatarURL() || undefined,
-						})
-						.setTitle(title)
-						.setColor(0xff6b6b)
-						.setDescription(description)
-						.setFooter({ text: `${projectInfo.name} • bug #${bugId}` })
-						.setTimestamp();
+			await interaction.editReply({
+				content: `⏳ Downloading ${mediaFiles.size} attachment(s) (${formatFileSize(totalSize)})... This may take a moment.`,
+			});
 
-					if (projectInfo.iconURL) embed.setThumbnail(projectInfo.iconURL);
-
-					const trelloUrlParts = [
-						"https://trello.com/addCard?name=",
-						encodeURIComponent(title),
-						"&url=",
-						encodeURIComponent(
-							interaction.message?.url || "https://example.com",
-						),
-						"&idBoard=",
-						config.data?.trelloBoardId || "",
-					];
-
-					const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-						new ButtonBuilder()
-							.setCustomId(`bug:close:${bugId}`)
-							.setLabel("close")
-							.setStyle(ButtonStyle.Secondary)
-							.setEmoji("🔒"),
-						new ButtonBuilder()
-							.setCustomId(`bug:edit:${bugId}`)
-							.setLabel("edit")
-							.setStyle(ButtonStyle.Primary),
-						new ButtonBuilder()
-							.setCustomId(`bug:delete:${bugId}`)
-							.setLabel("delete")
-							.setStyle(ButtonStyle.Danger),
-						new ButtonBuilder()
-							.setStyle(ButtonStyle.Link)
-							.setLabel("add to trello")
-							.setURL(trelloUrlParts.join("")),
-						new ButtonBuilder()
-							.setCustomId("bug:new")
-							.setLabel("new bug")
-							.setStyle(ButtonStyle.Success),
-					);
-
-					const message = await channel.send({
-						embeds: [embed],
-						components: [buttons],
-					});
-
-					try {
-						const thread = await message.startThread({
-							name: `#${bugId}: ${title.substring(0, 50)}${title.length > 50 ? "..." : ""}`,
-							reason: `bug report thread for bug #${bugId}`,
-						});
-
-						await thread.members.add(interaction.user.id);
-						await thread.send({
-							content:
-								`thread created for bug #${bugId} affecting ${projectInfo.displayName}.
-							use this space to discuss the bug report, provide additional
-							details, or ask questions.`
-									.replace(/\s+/g, " ")
-									.trim(),
-						});
-
-						bug.thread_id = thread.id;
-						await bug.save();
-					} catch (error) {}
-
-					msgUrl = message.url;
-
-					bug.message_id = message.id;
-					bug.sent = true;
-					await bug.save();
-
-					logger.info(
-						`sent bug report ${bug._id} to channel ${guild.bug_channel}`,
-					);
-				}
-			} catch (error) {
-				logger.error(`failed to send bug report to channel: ${error}`);
-			}
+			downloadedMedia = media;
 		}
 
+		// build message container
+		const projectKey = affected.split(",")[0];
+		const mediaUrls = mediaFiles
+			? Array.from(mediaFiles.values()).map((att) => att.url)
+			: [];
+		const container = buildBugContainer(
+			bug,
+			projectKey,
+			interaction.user.id,
+			mediaUrls,
+		);
+
+		// send message to bug channel
+		const message = await channel.send({
+			components: [container],
+			flags: "IsComponentsV2",
+			files: downloadedMedia.map((media) =>
+				new AttachmentBuilder(media.data).setName(
+					`bug_${bugId}_media.${media.extension}`,
+				),
+			),
+			allowedMentions: { users: [] },
+		});
+
+		// create thread
+		const threadName = `#${bugId} ${truncateTitle(title, VALIDATION.THREAD_NAME_MAX_LENGTH)}`;
+		const thread = await message.startThread({
+			name: threadName,
+			autoArchiveDuration: VALIDATION.AUTO_ARCHIVE_DURATION,
+			reason: `Thread for bug report #${bugId}`,
+		});
+
+		await thread.send({
+			content:
+				"Use this space to discuss the bug, provide additional details, or ask questions.",
+		});
+		await thread.members.add(interaction.user.id);
+
+		// Update bug with message and thread IDs
+		bug.message_id = message.id;
+		bug.thread_id = thread.id;
+		await bug.save();
+
+		// Final success message
 		await interaction.editReply({
-			content: `✅ bug report submitted! ${msgUrl}`,
+			content: `✅ Bug report #${bugId} has been submitted successfully! Check <#${channel.id}> for your report.`,
+		});
+
+		logger.info("Bug report submitted successfully", {
+			bugId,
+			messageId: message.id,
+			threadId: thread.id,
 		});
 	} catch (error) {
-		logger.error("failed to create bug report:", error);
-		await interaction.editReply({
-			content: "❌ failed to submit bug report. please try again later.",
-		});
-	}
-}
+		logger.error("Failed to process bug report", { error });
 
-export async function buttonExecute(
-	client: Client,
-	interaction: ButtonInteraction,
-) {
-	const [, action, bugId] = interaction.customId.split(":");
+		const errorMessage =
+			error instanceof Error ? error.message : "An unknown error occurred.";
 
-	if (action === "new") {
-		const options = Object.entries(PROJECT_MAP).map(([key, project]) =>
-			new StringSelectMenuOptionBuilder()
-				.setLabel(project.displayName)
-				.setValue(key),
-		);
-
-		const selectMenu = new StringSelectMenuBuilder()
-			.setCustomId("bug:project-select")
-			.setPlaceholder(`select a ${config.data.terminology}`)
-			.addOptions(...options);
-
-		const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-			selectMenu,
-		);
-
-		await interaction.reply({
-			content: `select a ${config.data.terminology} to report a bug for:`,
-			components: [row],
-			flags: ["Ephemeral"],
-		});
-		return;
-	}
-
-	const member = interaction.member as GuildMember;
-	const isManager = await hasManagerPermissions(member);
-
-	const bug = await BugModel.findOne({ bug_id: Number.parseInt(bugId) });
-	if (!bug) {
-		await interaction.reply({
-			content: "❌ bug not found.",
-			flags: ["Ephemeral"],
-		});
-		return;
-	}
-
-	const isAuthor = bug.user_id === interaction.user.id;
-
-	if (!isManager && !isAuthor) {
-		await interaction.reply({
-			content: "❌ you don't have permission to do this.",
-			flags: ["Ephemeral"],
-		});
-		return;
-	}
-
-	switch (action) {
-		case "close": {
-			const newStatus = bug.status === "closed" ? "open" : "closed";
-			bug.status = newStatus;
-			await bug.save();
-
-			if (bug.message_id && interaction.guild) {
-				const guild = await GuildModel.findOne({
-					guild_id: interaction.guild.id,
-				});
-				if (guild?.bug_channel) {
-					await updateBugEmbed(client, bug, bug.message_id, guild.bug_channel);
-				}
-			}
-
+		if (interaction.deferred || interaction.replied) {
+			await interaction.editReply({
+				content: `❌ ${errorMessage}`,
+			});
+		} else {
 			await interaction.reply({
-				content: `✅ bug #${bug.bug_id} ${newStatus === "closed" ? "closed" : "reopened"}.`,
+				content: `❌ ${errorMessage}`,
 				flags: ["Ephemeral"],
 			});
-			break;
-		}
-
-		case "edit": {
-			if (bug.status === "closed") {
-				await interaction.reply({
-					content: "❌ cannot edit a closed bug.",
-					flags: ["Ephemeral"],
-				});
-				return;
-			}
-
-			const modal = new ModalBuilder()
-				.setCustomId(`bug:edit:${bug.bug_id}`)
-				.setTitle(`edit bug #${bug.bug_id}`);
-
-			const titleInput = new TextInputBuilder()
-				.setCustomId("title")
-				.setLabel("bug title")
-				.setStyle(TextInputStyle.Short)
-				.setPlaceholder("short description of the bug")
-				.setRequired(true)
-				.setMaxLength(100)
-				.setValue(bug.title);
-
-			const descriptionInput = new TextInputBuilder()
-				.setCustomId("description")
-				.setLabel("bug description")
-				.setStyle(TextInputStyle.Paragraph)
-				.setPlaceholder(
-					"detailed description of the bug and steps to reproduce",
-				)
-				.setRequired(true)
-				.setMaxLength(1000)
-				.setValue(bug.description);
-
-			const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-				titleInput,
-			);
-			const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-				descriptionInput,
-			);
-
-			modal.addComponents(firstRow, secondRow);
-			await interaction.showModal(modal);
-			break;
-		}
-
-		case "delete": {
-			bug.deleteOne();
-
-			if (bug.message_id && interaction.guild) {
-				const guild = await GuildModel.findOne({
-					guild_id: interaction.guild.id,
-				});
-				if (guild?.bug_channel) {
-					try {
-						const channel = await client.channels.fetch(guild.bug_channel);
-						if (channel?.isTextBased() && "messages" in channel) {
-							const message = await channel.messages.fetch(bug.message_id);
-							await message.delete();
-						}
-					} catch (error) {
-						logger.error("failed to delete bug message:", error);
-					}
-				}
-			}
-
-			await interaction.reply({
-				content: `✅ bug #${bug.bug_id} deleted.`,
-				flags: ["Ephemeral"],
-			});
-			break;
 		}
 	}
-}
-
-export async function selectMenuExecute(
-	_client: Client,
-	interaction: StringSelectMenuInteraction,
-) {
-	if (interaction.customId !== "bug:project-select") return;
-
-	const project = interaction.values[0];
-	const modal = new ModalBuilder()
-		.setCustomId(`bug:${project}`)
-		.setTitle(`report bug - ${getProjectName(project)}`);
-
-	const titleInput = new TextInputBuilder()
-		.setCustomId("title")
-		.setLabel("bug title")
-		.setStyle(TextInputStyle.Short)
-		.setPlaceholder("short description of the bug")
-		.setRequired(true)
-		.setMaxLength(100);
-
-	const descriptionInput = new TextInputBuilder()
-		.setCustomId("description")
-		.setLabel("bug description")
-		.setStyle(TextInputStyle.Paragraph)
-		.setPlaceholder("detailed description of the bug and steps to reproduce")
-		.setRequired(true)
-		.setMaxLength(1000);
-
-	const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-		titleInput,
-	);
-	const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-		descriptionInput,
-	);
-
-	modal.addComponents(firstRow, secondRow);
-	await interaction.showModal(modal);
 }
 
 export const reportCommand = {
 	execute,
 	modalExecute,
-	buttonExecute,
-	selectMenuExecute,
 	getProjectChoices,
 };

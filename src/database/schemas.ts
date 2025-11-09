@@ -10,7 +10,6 @@ const uniqueProjects = Object.keys(config.data.projects) as [
 	...string[],
 ];
 
-// mongoose schemas
 const CounterSchema = new Schema({
 	_id: String,
 	sequence_value: { type: Number, default: 0 },
@@ -43,7 +42,9 @@ const BugSchema = new Schema(
 		user_id: { type: String, required: true, ref: "User" },
 		status: { type: String, enum: ["open", "closed"], default: "open" },
 		title: { type: String, required: true },
-		project: { type: String, enum: uniqueProjects, required: true },
+		/** @deprecated */
+		project: { type: String, enum: uniqueProjects, required: false },
+		projects: [{ type: String, enum: uniqueProjects, required: false }],
 		description: { type: String, required: true },
 		sent: { type: Boolean, default: false },
 		message_id: String,
@@ -58,6 +59,7 @@ const MediaSchema = new Schema(
 		data: { type: Buffer, required: true },
 		user_id: { type: String, required: true, ref: "User" },
 		bug_id: { type: String, ref: "Bug" },
+		extension: { type: String, required: true },
 	},
 	{ timestamps: true },
 );

@@ -8,16 +8,7 @@ const commandData = new SlashCommandBuilder()
 	.setName("bug")
 	.setDescription("bug report management")
 	.addSubcommand((subcommand) =>
-		subcommand
-			.setName("report")
-			.setDescription("report a new bug")
-			.addStringOption((option) =>
-				option
-					.setName(config.data.terminology)
-					.setDescription(`which ${config.data.terminology} this bug affects`)
-					.setRequired(true)
-					.addChoices(...reportCommand.getProjectChoices()),
-			),
+		subcommand.setName("report").setDescription("report a new bug"),
 	)
 	.addSubcommand((subcommand) =>
 		subcommand
@@ -53,6 +44,6 @@ export default {
 		}
 	},
 	modalExecute: reportCommand.modalExecute,
-	buttonExecute: reportCommand.buttonExecute,
-	selectMenuExecute: reportCommand.selectMenuExecute,
+	// buttonExecute: reportCommand.buttonExecute,
+	// selectMenuExecute: reportCommand.selectMenuExecute,
 } satisfies ICommand;

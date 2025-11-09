@@ -26,9 +26,9 @@
 	"dependencies": {
 		"@google-cloud/vision": "^5.3.4",
 		"@sillowww/lily": "^0.2.0",
-		"discord.js": "^14.23.2",
+		"discord.js": "^14.24.0",
 		"mongodb": "^6.20.0",
-		"mongoose": "^8.19.1",
+		"mongoose": "^8.19.2",
 		"zod": "^3.25.76"
 	}
 }
