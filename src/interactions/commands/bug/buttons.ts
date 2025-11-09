@@ -10,7 +10,9 @@ import {
 	ChannelType,
 	type Client,
 	type GuildMember,
+	type Interaction,
 } from "discord.js";
+import { showEditModal } from "./report.ts";
 
 const logger = lily.child("bugButtons");
 
@@ -70,8 +72,8 @@ export function buildButtonRow(
 	return row;
 }
 
-async function canManageBug(
-	interaction: ButtonInteraction,
+export async function canManageBug(
+	interaction: Interaction,
 	bugUserId: string,
 ): Promise<boolean> {
 	if (!interaction.guild || !interaction.member) return false;
@@ -205,11 +207,15 @@ export async function handleEditButton(
 		return;
 	}
 
-	// TODO)) implement edit modal
-	await interaction.reply({
-		content: "❌ Editing bugs is not implemented yet.",
-		flags: ["Ephemeral"],
-	});
+	const projectKey = bug.projects[0] || "";
+
+	await showEditModal(
+		bugId,
+		bug.title,
+		bug.description,
+		projectKey,
+		interaction,
+	);
 }
 
 export async function handleDeleteButton(
