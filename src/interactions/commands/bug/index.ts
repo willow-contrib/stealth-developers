@@ -1,7 +1,18 @@
 import config from "@/config.ts";
 import type { ICommand } from "@/types.ts";
-import { type ApplicationCommandData, SlashCommandBuilder } from "discord.js";
+import {
+	type ApplicationCommandData,
+	type ButtonInteraction,
+	type Client,
+	SlashCommandBuilder,
+} from "discord.js";
 import { buttonCommand } from "./button.ts";
+import {
+	handleCloseButton,
+	handleDeleteButton,
+	handleEditButton,
+	handleOpenButton,
+} from "./buttons.ts";
 import { reportCommand } from "./report.ts";
 
 const commandData = new SlashCommandBuilder()
@@ -21,6 +32,30 @@ const commandData = new SlashCommandBuilder()
 					.setRequired(true),
 			),
 	);
+
+async function buttonExecute(client: Client, interaction: ButtonInteraction) {
+	const [, action] = interaction.customId.split(":");
+
+	switch (action) {
+		case "close":
+			await handleCloseButton(client, interaction);
+			break;
+		case "open":
+			await handleOpenButton(client, interaction);
+			break;
+		case "edit":
+			await handleEditButton(client, interaction);
+			break;
+		case "delete":
+			await handleDeleteButton(client, interaction);
+			break;
+		default:
+			await interaction.reply({
+				content: "❌ Unknown button action.",
+				flags: ["Ephemeral"],
+			});
+	}
+}
 
 export default {
 	data: commandData.toJSON() as ApplicationCommandData,
@@ -44,6 +79,5 @@ export default {
 		}
 	},
 	modalExecute: reportCommand.modalExecute,
-	// buttonExecute: reportCommand.buttonExecute,
-	// selectMenuExecute: reportCommand.selectMenuExecute,
+	buttonExecute,
 } satisfies ICommand;

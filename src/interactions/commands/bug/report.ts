@@ -28,6 +28,8 @@ import {
 	TextInputStyle,
 	ThumbnailBuilder,
 } from "discord.js";
+
+import { buildButtonRow } from "./buttons.ts";
 import { PROJECT_MAP, logger as lily } from "./shared.ts";
 
 const logger = lily.child("report");
@@ -63,15 +65,6 @@ interface DownloadedMediaResult {
 }
 
 // utils
-function buildTrelloUrl(title: string, url: string): string {
-	const params = new URLSearchParams({
-		name: title,
-		url: url,
-		idBoard: config.data?.trelloBoardId || "",
-	});
-	return `https://trello.com/addCard?${params.toString()}`;
-}
-
 function formatFileSize(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
@@ -153,7 +146,7 @@ export function getProjectChoices<T extends "name" | "label" = "name">(
 	) as ProjectChoice<T>[];
 }
 
-// Modal builders
+// modal builders
 function buildReportModal(): ModalBuilder {
 	const terminology = config.data.terminology;
 	const capitalizedTerminology =
@@ -210,7 +203,7 @@ function buildReportModal(): ModalBuilder {
 		.setLabelComponents(gameLabel, titleLabel, descriptionLabel, mediaLabel);
 }
 
-// Validation
+// validation
 async function validateGuildSetup(interaction: ModalSubmitInteraction) {
 	if (!interaction.guild) {
 		throw new Error("This command can only be used in a server.");
@@ -413,12 +406,17 @@ export async function modalExecute(
 		});
 		await thread.members.add(interaction.user.id);
 
-		// Update bug with message and thread IDs
+		// update bug with message and thread IDs, add buttons
 		bug.message_id = message.id;
 		bug.thread_id = thread.id;
 		await bug.save();
 
-		// Final success message
+		const buttonRow = buildButtonRow(bugId, message.url, title, false);
+		await message.edit({
+			components: [container, buttonRow],
+		});
+
+		// final success message
 		await interaction.editReply({
 			content: `✅ Bug report #${bugId} has been submitted successfully! Check <#${channel.id}> for your report.`,
 		});

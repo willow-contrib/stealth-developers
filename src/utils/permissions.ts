@@ -1,8 +1,8 @@
-import type { APIGuildMember, GuildMember } from "discord.js";
+import type { GuildMember } from "discord.js";
 import { GuildModel } from "../database/schemas.ts";
 
 export async function hasManagerPermissions(
-	member: GuildMember | APIGuildMember,
+	member: GuildMember,
 ): Promise<boolean> {
 	if (
 		member.permissions.has("ManageGuild") ||
