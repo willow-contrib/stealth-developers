@@ -2,6 +2,8 @@
 
 discord bot for the stealth developers community.
 
+thanks arnav (idk wat u did but thanks)
+
 ## development
 
 ### requirements
