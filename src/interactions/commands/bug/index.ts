@@ -67,7 +67,7 @@ export default {
 			case "report":
 				await reportCommand.execute(client, interaction);
 				break;
-			case "button":
+			case "help":
 				await helpCommand.execute(client, interaction);
 				break;
 			default:
