@@ -1,4 +1,3 @@
-import config from "@/config.ts";
 import type { ICommand } from "@/types.ts";
 import {
 	type ApplicationCommandData,
@@ -6,13 +5,13 @@ import {
 	type Client,
 	SlashCommandBuilder,
 } from "discord.js";
-import { buttonCommand } from "./button.ts";
 import {
 	handleCloseButton,
 	handleDeleteButton,
 	handleEditButton,
 	handleOpenButton,
 } from "./buttons.ts";
+import { helpCommand } from "./help.ts";
 import { reportCommand } from "./report.ts";
 
 const commandData = new SlashCommandBuilder()
@@ -23,8 +22,8 @@ const commandData = new SlashCommandBuilder()
 	)
 	.addSubcommand((subcommand) =>
 		subcommand
-			.setName("button")
-			.setDescription("create a button to report bugs")
+			.setName("help")
+			.setDescription("help a user report a bug")
 			.addUserOption((option) =>
 				option
 					.setName("user")
@@ -69,7 +68,7 @@ export default {
 				await reportCommand.execute(client, interaction);
 				break;
 			case "button":
-				await buttonCommand.execute(client, interaction);
+				await helpCommand.execute(client, interaction);
 				break;
 			default:
 				await interaction.reply({
