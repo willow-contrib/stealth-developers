@@ -83,6 +83,12 @@ async function processImage(
 export default {
 	event: Events.MessageCreate,
 	async execute(client: Client, message: Message) {
+		if (client.user?.id && message.mentions.has(client.user?.id)) {
+			if (message.content.includes("is this true")) {
+				await message.reply({ content: "yeh" });
+			}
+		}
+
 		if (
 			!message.attachments.some((attachment) =>
 				attachment.contentType?.startsWith("image/"),
