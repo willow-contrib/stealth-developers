@@ -83,10 +83,8 @@ async function processImage(
 export default {
 	event: Events.MessageCreate,
 	async execute(client: Client, message: Message) {
-		if (client.user?.id && message.mentions.has(client.user?.id)) {
-			if (message.content.includes("is this true")) {
-				if (message.channel.isSendable()) message.channel.send("yeh");
-			}
+		if (message.content.includes("grok is this true")) {
+			if (message.channel.isSendable()) await message.channel.send("yeh");
 		}
 
 		if (
