@@ -57,6 +57,17 @@ const commandData = new SlashCommandBuilder()
 					.setDescription("channel for highlights")
 					.setRequired(true),
 			),
+	)
+	.addSubcommand((subcommand) =>
+		subcommand
+			.setName("report-channel")
+			.setDescription("set the channel where report are to be sent")
+			.addChannelOption((option) =>
+				option
+					.setName("channel")
+					.setDescription("channel for report")
+					.setRequired(true),
+			),
 	);
 
 async function execute(
@@ -105,6 +116,8 @@ async function execute(
 			await handleBugChannel(interaction, guild);
 		} else if (subcommand === "highlight-channel") {
 			await handleHighlightChannel(interaction, guild);
+		} else if (subcommand === "report-channel") {
+			await handleReportChannel(interaction, guild);
 		} else {
 			await interaction.reply({
 				content: "❌ unknown subcommand.",
@@ -234,6 +247,30 @@ async function handleHighlightChannel(
 
 	await interaction.reply({
 		content: `✅ set highlights channel to ${channel}.`,
+		flags: ["Ephemeral"],
+	});
+}
+
+async function handleReportChannel(
+	interaction: ChatInputCommandInteraction,
+	guild: GuildType,
+) {
+	const channel = interaction.options.getChannel("channel", true);
+
+	const allowedTypes = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
+	if (!allowedTypes.includes(channel.type)) {
+		await interaction.reply({
+			content: "❌ report channel must be a text channel.",
+			flags: ["Ephemeral"],
+		});
+		return;
+	}
+
+	guild.report_channel = channel.id;
+	await guild.save();
+
+	await interaction.reply({
+		content: `✅ set report channel to ${channel}.`,
 		flags: ["Ephemeral"],
 	});
 }

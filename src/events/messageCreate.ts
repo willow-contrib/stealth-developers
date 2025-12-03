@@ -1,5 +1,5 @@
 import config from "@/config";
-import { UserModel } from "@/database/schemas";
+import { GuildModel, UserModel } from "@/database/schemas";
 import lily from "@/utils/logging";
 import vision from "@google-cloud/vision";
 import {
@@ -80,19 +80,58 @@ async function processImage(
 	return results;
 }
 
+async function handleReportChannel(message: Message) {
+	if (!message.guild) return;
+
+	const guildData = await GuildModel.findOne({ guild_id: message.guild.id });
+	if (
+		!guildData ||
+		!guildData.report_channel ||
+		message.channel.id !== guildData.report_channel
+	)
+		return;
+
+	let user = await UserModel.findOne({
+		user_id: message.author.id,
+		guild_id: message.guild.id,
+	});
+
+	if (!user) {
+		user = new UserModel({
+			user_id: message.author.id,
+			guild_id: message.guild.id,
+		});
+	}
+
+	if (!user.has_reported) {
+		user.has_reported = true;
+		await user.save();
+
+		if (guildData.report_message) {
+			await message.reply({
+				content: guildData.report_message,
+				allowedMentions: { users: [message.author.id] },
+			});
+		}
+	}
+}
+
 export default {
 	event: Events.MessageCreate,
 	async execute(client: Client, message: Message) {
+		if (message.author.bot) return;
+
 		if (message.content.includes("grok is this true")) {
 			if (message.channel.isSendable()) await message.channel.send("yeh");
 		}
+
+		await handleReportChannel(message);
 
 		if (
 			!message.attachments.some((attachment) =>
 				attachment.contentType?.startsWith("image/"),
 			) ||
-			!config.data.catChannel?.channelId ||
-			message.author.bot
+			!config.data.catChannel?.channelId
 		)
 			return;
 

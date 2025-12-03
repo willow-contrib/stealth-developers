@@ -23,6 +23,8 @@ const GuildSchema = new Schema(
 		commands_channel: String,
 		highlights_channel: String,
 		manager_roles: [String],
+		report_message: { type: String, default: null },
+		report_channel: { type: String, default: null },
 	},
 	{ timestamps: true },
 );
@@ -32,6 +34,7 @@ const UserSchema = new Schema(
 		user_id: { type: String, required: true },
 		guild_id: { type: String, required: true, ref: "Guild" },
 		cat_points: { type: Number, default: 0 },
+		has_reported: { type: Boolean, default: false },
 	},
 	{ timestamps: true },
 );
